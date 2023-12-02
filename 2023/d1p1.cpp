@@ -30,12 +30,12 @@ vector<string> readCalibrationDoc(const string& filePath)
     return input;
 }
 
-unsigned short findCalibrationValue(const string& line)
+unsigned int findCalibrationValue(const string& line)
 {
     auto isDigit = [](unsigned char c){ return c >= '0' && c <= '9'; };
-    const auto firstDigit = find_if(line.begin(), line.end(), isDigit);
-    const auto secondDigit = find_if(line.rbegin(), line.rend(), isDigit);
-    return (*firstDigit - '0') * 10 + (*secondDigit - '0');
+    const auto firstDigit = static_cast<unsigned int>(*find_if(line.begin(), line.end(), isDigit) - '0');
+    const auto secondDigit = static_cast<unsigned int>(*find_if(line.rbegin(), line.rend(), isDigit) - '0');
+    return firstDigit * 10 + secondDigit;
 }
 
 int main(int argc, char** argv)
