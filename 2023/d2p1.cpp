@@ -1,4 +1,4 @@
-#include "fileio.h"
+#include "helper.h"
 
 #include <fstream>
 #include <iostream>
@@ -149,6 +149,8 @@ vector<Game> parseGameRecords(const vector<string>& records)
 
 int main(int argc, char** argv)
 {
+    using namespace helper;
+
     vector<string> example{
         "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green",
         "Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue",
@@ -161,7 +163,7 @@ int main(int argc, char** argv)
     const auto useExample = argc == 1;
     if(!useExample)
     {
-        records = fileio::readFile(argv[1]); // read game record
+        records = readFile(argv[1]); // read game record
     }
 
     vector<Game> games = parseGameRecords(records);

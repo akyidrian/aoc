@@ -1,4 +1,4 @@
-#include "fileio.h"
+#include "helper.h"
 
 #include <functional>
 #include <fstream>
@@ -8,7 +8,6 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <regex>
 #include <unordered_map>
 #include <vector>
@@ -155,6 +154,8 @@ namespace {
 
 int main(int argc, char** argv)
 {
+    using namespace helper;
+
     vector<string> example{
         "467..114..",
         "...*......",
@@ -172,7 +173,7 @@ int main(int argc, char** argv)
     const auto useExample = argc == 1;
     if(!useExample)
     {
-        schematic = fileio::readFile(argv[1]); // for engine schematic
+        schematic = readFile(argv[1]); // for engine schematic
     }
 
     auto isDot = [](char c){ return c == '.'; };
