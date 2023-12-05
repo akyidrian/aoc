@@ -1,3 +1,5 @@
+#include "fileio.h"
+
 #include <fstream>
 #include <iostream>
 #include <ostream>
@@ -112,23 +114,6 @@ class Game
         constexpr static Cubes m_bag{12, 13, 14};
 };
 
-vector<string> readGameRecord(const string& filePath)
-{
-    ifstream inputFile(filePath);
-    if(!inputFile.is_open())
-    {
-        cerr << "Error opening input file: " << filePath << '\n';
-        return {};
-    }
-    vector<string> input;
-    string line;
-    while(getline(inputFile, line))
-    {
-        input.push_back(line);
-    }
-    return input;
-}
-
 Game parseGameRecord(const string& record)
 {
     const auto colonPos = record.find(':');
@@ -199,7 +184,7 @@ int main(int argc, char** argv)
     const auto useExample = argc == 1;
     if(!useExample)
     {
-        records = readGameRecord(argv[1]);
+        records = fileio::readFile(argv[1]); // read game record
     }
 
     vector<Game> games = parseGameRecords(records);

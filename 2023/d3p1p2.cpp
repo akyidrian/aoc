@@ -1,8 +1,9 @@
+#include "fileio.h"
+
 #include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <numeric>
 #include <ostream>
 #include <set>
 #include <sstream>
@@ -12,7 +13,6 @@
 #include <unordered_map>
 #include <vector>
 
-using std::accumulate;
 using std::cerr;
 using std::cout;
 using std::function;
@@ -56,23 +56,6 @@ namespace {
             return p.first << 16 & p.second;
         }
     };
-
-    vector<string> readEngineSchematic(const string& filePath)
-    {
-        ifstream inputFile(filePath);
-        if(!inputFile.is_open())
-        {
-            cerr << "Error opening input file: " << filePath << '\n';
-            return {};
-        }
-        vector<string> input;
-        string line;
-        while(getline(inputFile, line))
-        {
-            input.push_back(line);
-        }
-        return input;
-    }
 
     vector<SchematicPosition> constructNeighbours(size_t rrr, size_t ccc, size_t rows, size_t cols)
     {
@@ -189,7 +172,7 @@ int main(int argc, char** argv)
     const auto useExample = argc == 1;
     if(!useExample)
     {
-        schematic = readEngineSchematic(argv[1]);
+        schematic = fileio::readFile(argv[1]); // for engine schematic
     }
 
     auto isDot = [](char c){ return c == '.'; };

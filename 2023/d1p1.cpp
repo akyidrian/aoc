@@ -1,3 +1,5 @@
+#include "fileio.h"
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -6,29 +8,11 @@
 #include <vector>
 
 using std::accumulate;
-using std::cerr;
 using std::cout;
 using std::find_if;
 using std::ifstream;
 using std::string;
 using std::vector;
-
-vector<string> readCalibrationDoc(const string& filePath)
-{
-    ifstream inputFile(filePath);
-    if(!inputFile.is_open())
-    {
-        cerr << "Error opening input file: " << filePath << '\n';
-        return {};
-    }
-    vector<string> input;
-    string line;
-    while(getline(inputFile, line))
-    {
-        input.push_back(line);
-    }
-    return input;
-}
 
 unsigned int findCalibrationValue(const string& line)
 {
@@ -51,7 +35,7 @@ int main(int argc, char** argv)
     const auto useExample = argc == 1;
     if(!useExample)
     {
-        doc = readCalibrationDoc(argv[1]);
+        doc = fileio::readFile(argv[1]); // read calibration doc
     }
 
     vector<unsigned int> values;
