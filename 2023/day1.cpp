@@ -99,7 +99,7 @@ int main(int argc, char** argv)
 {
     using namespace helper;
 
-    auto [part, filePath] = parseMainArgs(argc, argv);
+    const auto [part, filePath] = parseMainArgs(argc, argv);
     switch(part)
     {
         case Part::One:
@@ -116,7 +116,7 @@ int main(int argc, char** argv)
             auto expected = exampleAnswer;
             if(!filePath.empty())
             {
-                doc = readFile(argv[2]);
+                doc = readFile(filePath);
                 expected = inputAnswer;
             }
             const auto answer = run(doc, findCalibrationValuePart1);
