@@ -1,6 +1,5 @@
 #include "helper.h"
 
-#include <fstream>
 #include <iostream>
 #include <ostream>
 #include <sstream>
@@ -9,9 +8,7 @@
 #include <regex>
 #include <vector>
 
-using std::cerr;
 using std::cout;
-using std::ifstream;
 using std::ostream;
 using std::smatch;
 using std::string;
@@ -24,9 +21,9 @@ using std::vector;
 
 struct Cubes
 {
-    unsigned int red = 0;
-    unsigned int green = 0;
-    unsigned int blue = 0;
+    unsigned int red = 0u;
+    unsigned int green = 0u;
+    unsigned int blue = 0u;
 };
 
 class Game
@@ -41,11 +38,12 @@ class Game
             m_rounds.push_back(round);
         }
 
-        bool possible() const
+        // Is the game possible if the given bag is used?
+        bool possible(const Cubes& bag) const
         {
             for(const auto& cubes : m_rounds)
             {
-                if(cubes.red > m_bag.red || cubes.green > m_bag.green || cubes.blue > m_bag.blue)
+                if(cubes.red > bag.red || cubes.green > bag.green || cubes.blue > bag.blue)
                 {
                     return false;
                 }
@@ -53,42 +51,51 @@ class Game
             return true;
         }
 
-        bool impossible()
-        {
-            return !possible();
-        }
-
         unsigned int number() const
         {
             return m_number;
         }
 
+        // What are the fewest number of cubes required for the game to be possible?
+        Cubes fewest() const
+        {
+            auto red = 0u;
+            auto green = 0u;
+            auto blue = 0u;
+            for(const auto& r : m_rounds)
+            {
+                if(r.red > red)
+                {
+                    red = r.red;
+                }
+                if(r.green > green)
+                {
+                    green = r.green;
+                }
+                if(r.blue > blue)
+                {
+                    blue = r.blue;
+                }
+            }
+            return {red, green, blue};
+        }
+
+        // Created for debug purposes...
         friend ostream& operator<<(ostream& out, const Game& game)
         {
             stringstream ss;
             auto rounds = game.m_rounds;
-            for(auto i = 0u; i < rounds.size(); ++i)  // TODO use fmt - it's just easier
+            for(auto i = 0u; i < rounds.size(); ++i)
             {
-                if(rounds[i].red)
-                {
-                    ss << rounds[i].red << " red, ";
-                }
-                if(rounds[i].green)
-                {
-                    ss << rounds[i].green << " green, ";
-                }
-                if(rounds[i].blue)
-                {
-                    ss << rounds[i].blue << " blue, ";
-                }
-                ss << "; ";
+                ss << rounds[i].red << " red, ";
+                ss << rounds[i].green << " green, ";
+                ss << rounds[i].blue << " blue; ";
             }
             return out << string("Game ") + to_string(game.m_number) + string(": ") + ss.str();
         }
     private:
-        vector<Cubes> m_rounds;
         unsigned int m_number;
-        constexpr static Cubes m_bag{12, 13, 14};
+        vector<Cubes> m_rounds;
 };
 
 Game parseGameRecord(const string& record)
@@ -99,10 +106,8 @@ Game parseGameRecord(const string& record)
     auto game = Game(gameNumber);
 
     regex roundPattern("(\\d+ (?:red|green|blue)(?:, \\d+ (?:red|green|blue))*)");
-
     sregex_iterator roundIt(record.begin() + static_cast<long>(colonPos), record.end(), roundPattern);
     sregex_iterator endIt;
-
     while (roundIt != endIt) {
         smatch roundMatch = *roundIt;
         const string roundMatchStr = roundMatch.str(0);
@@ -147,10 +152,40 @@ vector<Game> parseGameRecords(const vector<string>& records)
     return games;
 }
 
+[[nodiscard]] unsigned int runPart1(const vector<string>& records)
+{
+    constexpr static Cubes bag{12, 13, 14}; // Same for all games...
+    vector<Game> games = parseGameRecords(records);
+    auto sum = 0u;
+    for(const auto& g : games)
+    {
+        if(g.possible(bag))
+        {
+            sum += g.number();
+        }
+    }
+    return sum;
+}
+
+[[nodiscard]] unsigned int runPart2(const vector<string>& records)
+{
+    vector<Game> games = parseGameRecords(records);
+    auto sum = 0u;
+    for(const auto& g : games)
+    {
+        const auto fewest = g.fewest();
+        sum += fewest.red * fewest.green * fewest.blue; // "power of minimum set of cubes"
+    }
+    return sum;
+}
+
 int main(int argc, char** argv)
 {
     using namespace helper;
 
+    const auto [part, filePath] = parseMainArgs(argc, argv);
+
+    // Common example for both parts
     vector<string> example{
         "Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green",
         "Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue",
@@ -159,23 +194,34 @@ int main(int argc, char** argv)
         "Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green"
     };
     vector<string>& records = example;
-
-    const auto useExample = argc == 1;
-    if(!useExample)
+    if(!filePath.empty())
     {
-        records = readFile(argv[1]); // read game record
+        records = readFile(filePath);
     }
 
-    vector<Game> games = parseGameRecords(records);
-    auto sum = 0u;
-    for(const auto& g : games)
+    switch(part)
     {
-        if(g.possible())
+        case Part::One:
         {
-            sum += g.number();
+            constexpr auto exampleAnswer = 8u;
+            constexpr auto inputAnswer = 2776u;
+            const auto expected = filePath.empty() ? exampleAnswer : inputAnswer;
+            auto answer = runPart1(records);
+            cout << "Sum of possible game numbers: " << answer << '\n';
+            cout << "Correct? " << (answer == expected) << '\n';
+            break;
+        }
+        case Part::Two:
+        {
+            constexpr auto exampleAnswer = 2286u;
+            constexpr auto inputAnswer = 68638u;
+            const auto expected = filePath.empty() ? exampleAnswer : inputAnswer;
+            auto answer = runPart2(records);
+            cout << "Sum of powers of minimum set of cubes: " << answer << '\n';
+            cout << "Correct? " << (answer == expected) << '\n';
+            break;
         }
     }
-    cout << "Sum of possible game numbers: " << sum << '\n';
 
     return 0;
 }
