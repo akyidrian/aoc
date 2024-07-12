@@ -14,3 +14,7 @@ add_executable(d1p1
 add_executable(d1p2
     d1p2.cpp
 )
+
+add_executable(d2p1
+    d2p1.cpp
+)
