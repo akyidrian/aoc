@@ -11,12 +11,8 @@ add_executable(day1
     day1.cpp
 )
 
-add_executable(d2p1
+add_executable(d2p1p2
     d2p1.cpp
-)
-
-add_executable(d2p2
-    d2p2.cpp
 )
 
 add_executable(day3
