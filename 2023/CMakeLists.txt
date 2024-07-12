@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-march=native -g -Wall -Werror -Wextra -Wconversion -Wpedantic -Wshadow")
 
-add_executable(d1p1p2
-    d1p1.cpp
+add_executable(day1
+    day1.cpp
 )
 
 add_executable(d2p1
@@ -19,7 +19,7 @@ add_executable(d2p2
     d2p2.cpp
 )
 
-add_executable(d3p1p2
-    d3p1p2.cpp
+add_executable(day3
+    day3.cpp
 )
 
