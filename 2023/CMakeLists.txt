@@ -26,3 +26,8 @@ add_executable(d2p2
 add_executable(d3p1
     d3p1.cpp
 )
+
+add_executable(d3p2
+    d3p2.cpp
+)
+
