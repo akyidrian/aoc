@@ -1,3 +1,4 @@
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -14,6 +15,7 @@
 using std::accumulate;
 using std::cerr;
 using std::cout;
+using std::function;
 using std::ifstream;
 using std::ostream;
 using std::pair;
@@ -27,9 +29,12 @@ using std::sregex_iterator;
 using std::vector;
 using std::unordered_map;
 
-using SchematicPosition = pair<size_t, size_t>;
-
 namespace {
+    struct SchematicSymbol;
+    struct PairHash;
+    using SchematicPosition = pair<size_t, size_t>;
+    using SchematicSymbolMap = unordered_map<SchematicPosition, SchematicSymbol, PairHash>; 
+
     struct SchematicNumber
     {
         unsigned int m_number = 0;
@@ -115,8 +120,8 @@ namespace {
     SchematicNumber constructNumber(const vector<string>& schematic, const size_t row, const size_t col, set<SchematicPosition>& alreadyVisited)
     {
         const auto line = schematic[row];
-        auto first = line.begin() + static_cast<unsigned int>(col);
-        auto last = line.begin() + static_cast<unsigned int>(col);
+        auto first = line.begin() + static_cast<std::string::difference_type>(col);
+        auto last = line.begin() + static_cast<std::string::difference_type>(col);
         while(std::prev(first) >= line.begin() && isDigit(*std::prev(first)))
         {
             first--; 
@@ -135,13 +140,9 @@ namespace {
         return {number, row, colFirst, colLast};
     }
 
-    vector<unsigned int> parseEngineSchematic(const vector<string>& schematic)
+    SchematicSymbolMap parseEngineSchematic(const vector<string>& schematic, function<bool(char)> isSymbol)
     {
-        auto isDot = [](char c){ return c == '.'; };
-        auto isSymbol = [&isDot](char c){ return !isDot(c) && !isDigit(c); };
-        auto isStar = [](char c){ return c == '*'; };
-        unordered_map<pair<size_t /*row*/, size_t /*col*/>, SchematicSymbol, PairHash> symbols;
-        vector<unsigned int> partNumbers;
+        SchematicSymbolMap symbols;
         const auto rowCount = schematic.size(); 
         const auto colCount = schematic[0].length();
         for(auto row = 0uz; row < rowCount; ++row)
@@ -160,13 +161,12 @@ namespace {
                     {
                         const auto number = constructNumber(schematic, rrr, ccc, alreadyVisited);
                         symbols[{row, col}].m_neighbours.push_back(number);
-                        partNumbers.push_back(number.m_number);
                     }
                 }
             }
         }
 
-        return partNumbers;
+        return symbols;
     }
 };
 
@@ -192,9 +192,36 @@ int main(int argc, char** argv)
         schematic = readEngineSchematic(argv[1]);
     }
 
-    const auto partNumbers = parseEngineSchematic(schematic);
-    const auto sum = accumulate(partNumbers.begin(), partNumbers.end(), 0);
+    auto isDot = [](char c){ return c == '.'; };
+    auto isSymbol = [&isDot](char c){ return !isDot(c) && !isDigit(c); };
+    auto isStar = [](char c){ return c == '*'; };
+    const auto symbolMap = parseEngineSchematic(schematic, isSymbol);
+    auto sum = 0u;
+    for(const auto& [pos, sym] : symbolMap)
+    {
+        for(const auto& part : sym.m_neighbours)
+        {
+            sum += part.m_number;
+        }
+    }
     cout << "Sum of part numbers: " << sum << '\n';
+    const auto starSymbolMap = parseEngineSchematic(schematic, isStar);
+    sum = 0u;
+    for(const auto& [pos, sym] : starSymbolMap)
+    {
+        // Gears are at least two tools connected by a star
+        if(sym.m_neighbours.size() < 2)
+        {
+            continue;
+        }
+        auto product = 1u;
+        for(const auto& gear : sym.m_neighbours)
+        {
+            product *= gear.m_number;
+        }
+        sum += product;
+    }
+    cout << "Sum of products of gears: " << sum << '\n';
 
     return 0;
 }
