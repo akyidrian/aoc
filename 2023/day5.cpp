@@ -5,6 +5,7 @@
 #include <regex>
 #include <vector>
 
+using namespace helper;
 using std::cout;
 using std::smatch;
 using std::string;
@@ -15,6 +16,53 @@ using std::vector;
 
 void parseAlmanac(const vector<string>& almanac)
 {
+    for(auto i = 0u; i < almanac.size(); ++i)
+    {
+        const auto& label = almanac[i];
+        if(label == "")
+        {
+            continue;
+        }
+        if(label.contains("seeds:")) // colon is necessary
+        {
+            auto seedsStr = strip(split(label, ':')[1]);
+            const auto seeds = split(seedsStr, ' ');
+            // TODO: stoul seeds and store
+        }
+        else if(label.contains("seed-to-soil map:"))
+        {
+            vector<vector<unsigned int>> seedToSoil;
+            for(++i; almanac[i] != ""; ++i)
+            {
+                auto const seedToSoilStrs = split(strip(almanac[i]), ' ');
+                vector<unsigned int> temp;
+                for(const auto& s : seedToSoilStrs)
+                {
+                    temp.push_back(static_cast<unsigned int>(stoul(s)));
+                }
+                seedToSoil.push_back(temp);
+            }
+            continue;
+        }
+        else if(label.contains("soil-to-fertilizer map:"))
+        {
+        }
+        else if(label.contains("fertilizer-to-water map:"))
+        {
+        }
+        else if(label.contains("water-to-light map:"))
+        {
+        }
+        else if(label.contains("light-to-temperature map:"))
+        {
+        }
+        else if(label.contains("temperature-to-humidity map:"))
+        {
+        }
+        else if(label.contains("humidity-to-location map:"))
+        {
+        }
+    }
     (void)almanac;
 }
 
@@ -32,7 +80,6 @@ unsigned int runPart2(const vector<string>& almanac)
 
 int main(int argc, char** argv)
 {
-    using namespace helper;
 
     const auto [part, filePath] = parseMainArgs(argc, argv);
 
