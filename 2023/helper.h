@@ -1,6 +1,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <sstream>
 #include <iostream>
 #include <vector>
 
@@ -48,5 +49,43 @@ namespace helper
             input.push_back(line);
         }
         return input;
+    }
+
+    // Works in the same way as python's split function
+    inline std::vector<std::string> split(const std::string& str, const char separator)
+    {
+        std::stringstream ss(str);
+        std::vector<std::string> splitStrs;
+        for(std::string temp; std::getline(ss, temp, separator);)
+        {
+            splitStrs.push_back(temp);
+        }
+        if(str.back() == separator)
+        {
+            splitStrs.push_back("");
+        }
+        return splitStrs;
+    }
+
+    // Works in the same way as python's strip function
+    inline std::string strip(const std::string& str)
+    {
+        auto beginIt = str.begin();
+        auto endIt = str.end();
+        while(beginIt != str.end() && *beginIt == ' ')
+        {
+            beginIt++;
+        }
+        if(beginIt == str.end())
+        {
+            return "";
+        }
+        while(*prev(endIt) == ' ')
+        {
+            endIt--;
+        }
+        const auto begin = static_cast<std::string::size_type>(beginIt-str.begin());
+        const auto length = static_cast<std::string::size_type>(endIt-beginIt);
+        return str.substr(begin, length);
     }
 };
