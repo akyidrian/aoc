@@ -9,26 +9,79 @@ using namespace std;
 
 bool part1(vector<int>& levels)
 {
-    auto increasing = (levels[0]-levels[1]) < 0;
-    auto decreasing = (levels[0]-levels[1]) > 0;
-    auto counter = 0u;
-    for(auto i = 1; i < levels.size(); ++i)
+    auto increasing = [](int a, int b){
+        return (a - b) <= -1 && (a - b) >= -3;
+    };
+    auto decreasing = [](int a, int b){
+        return (a - b) >= 1 && (a - b) <= 3;
+    };
+    auto incCounter = 0u;
+    auto decCounter = 0u;
+    for(size_t i = 1; i < levels.size(); ++i)
     {
-        auto diff = levels[i-1]-levels[i];
-        if(increasing && diff <= -1 && diff >= -3)
+        auto a = levels[i-1];
+        auto b = levels[i];
+        incCounter += increasing(a, b);
+        decCounter += decreasing(a, b);
+    }
+    return incCounter==(levels.size()-1) || decCounter==(levels.size()-1);
+}
+
+bool allIncreasing(const vector<int>& levels)
+{
+    auto increasing = [](int a, int b){
+        return (a - b) <= -1 && (a - b) >= -3;
+    };
+    for(auto i = 1u; i < levels.size(); ++i)
+    {
+        if(!increasing(levels[i-1], levels[i]))
         {
-            counter++;
-        }
-        else if(decreasing && diff <= 3 && diff >= 1)
-        {
-            counter++;
-        }
-        else
-        {
-            break;
+            return false;
         }
     }
-    return counter==(levels.size()-1);
+    return true;
+}
+
+bool allDecreasing(const vector<int>& levels)
+{
+    auto decreasing = [](int a, int b){
+        return (a - b) >= 1 && (a - b) <= 3;
+    };
+    for(auto i = 1u; i < levels.size(); ++i)
+    {
+        if(!decreasing(levels[i-1], levels[i]))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool part2(const vector<int>& levels)
+{
+    if(allIncreasing(levels) || allDecreasing(levels))
+    {
+        return true;
+    }
+    auto skip = 0u;
+    while(skip < levels.size())
+    {
+        vector<int> newLevels;
+        for(auto i = 0u; i < levels.size(); ++i)
+        {
+            if(i == skip)
+            {
+                continue;
+            }
+            newLevels.push_back(levels[i]);
+        }
+        if(allIncreasing(newLevels) || allDecreasing(newLevels))
+        {
+            return true;
+        }
+        skip++;
+    }
+    return false;
 }
 
 int main(int argc, char** argv)
@@ -48,6 +101,7 @@ int main(int argc, char** argv)
     auto& input = file;
     string line; // aka reports
     auto safePart1 = 0u;
+    auto safePart2 = 0u;
     while (getline(input, line)) {
         vector<int> levels;
         for (auto&& lineRange : line | views::split(' ')) {
@@ -55,6 +109,8 @@ int main(int argc, char** argv)
             levels.push_back(stoi(string(sv)));
         }
         safePart1 += part1(levels);
+        safePart2 += part2(levels);
     }
-    cout << "Safe reports: " << safePart1 << "\n";
+    cout << "Part 1 safe reports: " << safePart1 << "\n";
+    cout << "Part 2 safe reports:" << safePart2 << "\n";
 }
