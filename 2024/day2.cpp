@@ -30,20 +30,11 @@ bool allDecreasing(span<const int>& levels)
     return ranges::adjacent_find(levels, not_fn(decreasing)) == levels.end();
 }
 
-bool part1(vector<int>& levels)
+bool part1(const vector<int>& levels)
 {
-    auto incCounter = 0u;
-    auto decCounter = 0u;
-    for(size_t i = 1; i < levels.size(); ++i)
-    {
-        auto a = levels[i-1];
-        auto b = levels[i];
-        incCounter += increasing(a, b);
-        decCounter += decreasing(a, b);
-    }
-    return incCounter==(levels.size()-1) || decCounter==(levels.size()-1);
+    span s(levels);
+    return allIncreasing(s) || allDecreasing(s);
 }
-
 
 bool part2(const vector<int>& levels)
 {
@@ -52,12 +43,12 @@ bool part2(const vector<int>& levels)
     {
         return true;
     }
-    auto skip = 0u;
-    while(skip < levels.size())
+    auto skipIndex = 0u;
+    while(skipIndex < levels.size())
     {
         // Dividing report into two halves around the skip point...
-        span left(levels.begin(), skip);
-        span right(levels.begin()+skip+1, levels.end());
+        span left(levels.begin(), skipIndex);
+        span right(levels.begin()+skipIndex+1, levels.end());
         auto leftRightIncreasing = !left.size() || !right.size() || increasing(left.back(), right.front());
         auto leftRightDecreasing = !left.size() || !right.size() || decreasing(left.back(), right.front());
         if(leftRightIncreasing && allIncreasing(left) && allIncreasing(right))
@@ -68,7 +59,7 @@ bool part2(const vector<int>& levels)
         {
             return true;
         }
-        skip++;
+        skipIndex++;
     }
     return false;
 }
