@@ -13,3 +13,7 @@ add_executable(day1
 add_executable(day2
     day2.cpp
 )
+
+add_executable(day3
+    day3.cpp
+)
