@@ -43,7 +43,6 @@ unsigned int part1(int row, int col, const vector<string>& lines)
     }
     count += i==xLen;
 
-
     i = 1;
     while(down && i<xLen && lines[row+i][col]==x[i])
     {
@@ -81,17 +80,19 @@ unsigned int part1(int row, int col, const vector<string>& lines)
     return count;
 }
 
-unsigned int part2(int row, int col, const vector<string>& lines)
+unsigned int part2(size_t row, size_t col, const vector<string>& lines)
 {
-    const int rows = lines.size();
-    const int cols = lines[0].size();
+    const auto rows = lines.size();
+    const auto cols = lines[0].size();
 
-    auto count = 0u;
-    const auto left = col-1 >= 0;
+    const auto left = col > 0;
     const auto right = col+1 < cols;
-    const auto up = row-1 >= 0;
+    const auto up = row > 0;
     const auto down = row+1 < rows;
-    if(lines[row][col] != 'A' || !left || !right || !up || !down)
+
+    char center = lines[row][col];
+    auto noSpace = !left || !right || !up || !down;
+    if(center != 'A' || noSpace)
     {
         return 0;
     }
