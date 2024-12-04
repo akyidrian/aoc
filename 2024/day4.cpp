@@ -5,78 +5,77 @@
 
 using namespace std;
 
-unsigned int part1(int row, int col, const vector<string>& lines)
+vector<pair<int,int>> getDirections(size_t row, size_t rows, size_t col, size_t cols, size_t strLen)
 {
-    constexpr char x[] = "XMAS";
-    constexpr int xLen = sizeof(x)-1;
-    if(lines[row][col] != x[0])
+    const auto left = (col+1) >= strLen;
+    const auto right = col + strLen <= cols;
+    const auto up = (row+1) >= strLen;
+    const auto down = row + strLen <= rows;
+    vector<pair<int,int>> directions;
+    if(left)
+    {
+        directions.push_back({0, -1});
+        if(up)
+        {
+            directions.push_back({-1, -1});
+        }
+        if(down)
+        {
+            directions.push_back({1, -1});
+        }
+    }
+    if(right)
+    {
+        directions.push_back({0, 1});
+        if(up)
+        {
+            directions.push_back({-1, 1});
+        }
+        if(down)
+        {
+            directions.push_back({1, 1});
+        }
+    }
+    if(up)
+    {
+        directions.push_back({-1, 0});
+    }
+    if(down)
+    {
+        directions.push_back({1, 0});
+    }
+    return directions;
+}
+
+unsigned int part1(size_t row, size_t col, const vector<string>& lines)
+{
+    constexpr char XMAS[] = "XMAS";
+    constexpr int XMASLen = sizeof(XMAS)-1;
+    const auto center = lines[row][col];
+    if(center != XMAS[0])
     {
         return 0;
     }
-    const int rows = lines.size();
-    const int cols = lines[0].size();
+    const auto rows = lines.size();
+    const auto cols = lines[0].size();
+    auto directions = getDirections(row, rows, col, cols, XMASLen);
 
     auto count = 0u;
-    const auto left = (col+1)-xLen >= 0;
-    const auto right = col + xLen <= cols;
-    const auto up = (row+1)-xLen >= 0;
-    const auto down = row + xLen <= rows;
-
-    auto i = 1;
-    while(left && i<xLen && lines[row][col-i]==x[i])
+    for (const auto& [dr, dc] : directions)
     {
-        i++;
+        bool matches = true;
+        for (int i = 1; i < XMASLen; ++i)
+        {
+            int rrr = row + i * dr;
+            int ccc = col + i * dc;
+            if (lines[rrr][ccc] != XMAS[i])
+            {
+                matches = false;
+                break;
+            }
+        }
+        count += matches;
     }
-    count += i==xLen;
-
-    i = 1;
-    while(right && i<xLen && lines[row][col+i]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(up && i<xLen && lines[row-i][col]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(down && i<xLen && lines[row+i][col]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(left && up && i<xLen && lines[row-i][col-i]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(left && down && i<xLen && lines[row+i][col-i]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(right && up && i<xLen && lines[row-i][col+i]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
-
-    i = 1;
-    while(right && down && i<xLen && lines[row+i][col+i]==x[i])
-    {
-        i++;
-    }
-    count += i==xLen;
     return count;
 }
 
