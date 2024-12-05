@@ -7,8 +7,37 @@
 
 using namespace std;
 
+unsigned int part2(const vector<int>& unorderedUpdate, const multimap<int,int> orderMap)
+{
+    auto update = unorderedUpdate;
+    for(auto i = 0u; i < update.size(); ++i)
+    {
+        for(auto j = i+1; j < update.size(); ++j)
+        {
+            auto k = update[j];
+            auto range = orderMap.equal_range(k);
+            for (auto it = range.first; it != range.second; ++it) {
+                if(update[i] == it->second)
+                {
+                    auto temp = update[i];
+                    update[i] = update[j];
+                    update[j] = temp;
+                    break;
+                }
+            }
+        }
+    }
+    for(auto u : update)
+    {
+        cout << u << " ";
+    }
+    cout << '\n';
+    return update[update.size()/2];
+}
+
 unsigned int part1(const vector<pair<int,int>>& orders, const vector<vector<int>>& updates)
 {
+    static auto p2 = 0u;  // TODO:
     auto sum = 0u;
     multimap<int,int> orderMap;
     for(auto& [x,y] : orders)
@@ -39,10 +68,14 @@ unsigned int part1(const vector<pair<int,int>>& orders, const vector<vector<int>
         }
         if(updateMapCounter == updateMap.size())
         {
-            std::cout << u[u.size() / 2] << endl;
             sum += u[u.size() / 2];
         }
+        else
+        {
+            p2 += part2(u, orderMap);
+        }
     }
+    cout << p2 << endl;
     return sum;
 }
 
@@ -115,8 +148,6 @@ int main(int argc, char** argv)
             updates.push_back(update);
         }
     }
-
-    std::cout << updates.size() << endl;
 
     auto sumPart1 = part1(orders, updates);
     cout << "Sum of middle page numbers (part1): " << sumPart1 << "\n";
