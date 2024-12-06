@@ -7,76 +7,84 @@
 
 using namespace std;
 
-unsigned int part2(const vector<int>& unorderedUpdate, const multimap<int,int> orderMap)
+bool isOrderedUpdate(const multimap<int,int>& orderingRulesMap, const vector<int>& update)
 {
-    auto update = unorderedUpdate;
+    // Construct update map to represent it's ordering
+    multimap<int,int> updateMap;
     for(auto i = 0u; i < update.size(); ++i)
     {
         for(auto j = i+1; j < update.size(); ++j)
         {
-            auto k = update[j];
-            auto range = orderMap.equal_range(k);
-            for (auto it = range.first; it != range.second; ++it) {
-                if(update[i] == it->second)
-                {
-                    auto temp = update[i];
-                    update[i] = update[j];
-                    update[j] = temp;
-                    break;
-                }
+            updateMap.emplace(update[i], update[j]);
+        }
+    }
+
+    // Count the number of matches between our update map and the ordering rules map
+    // We need everything to match up from our update map to consider it correctly ordered
+    auto orderedCounter = 0u;
+    for(const auto& [x,y] : updateMap)
+    {
+        auto range = orderingRulesMap.equal_range(x);
+        for (auto it = range.first; it != range.second; ++it) {
+            if(y == it->second)
+            {
+                orderedCounter++;
+                break;
             }
         }
     }
-    for(auto u : update)
-    {
-        cout << u << " ";
-    }
-    cout << '\n';
-    return update[update.size()/2];
+    return orderedCounter == updateMap.size();
 }
 
-unsigned int part1(const vector<pair<int,int>>& orders, const vector<vector<int>>& updates)
+vector<int> correctlyOrderUpdate(const multimap<int,int>& orderingRulesMap, const vector<int>& unorderedUpdate)
 {
-    static auto p2 = 0u;  // TODO:
-    auto sum = 0u;
-    multimap<int,int> orderMap;
-    for(auto& [x,y] : orders)
+    auto orderedUpdate = unorderedUpdate;
+    for(auto i = 0u; i < orderedUpdate.size(); ++i)
     {
-        orderMap.insert({x,y});
-    }
-    for(auto& u : updates)
-    {
-        multimap<int,int> updateMap;
-        for(auto i = 0u; i < u.size(); ++i)
+        for(auto j = i+1; j < orderedUpdate.size(); ++j)
         {
-            for(auto j = i+1; j < u.size(); ++j)
-            {
-                updateMap.insert({u[i], u[j]});
-            }
-        }
-        auto updateMapCounter = 0u;
-        for(const auto& [k,v] : updateMap)
-        {
-            auto range = orderMap.equal_range(k);
+            // Use the ordering rules of later page numbers (j) and check
+            // if they're in the wrong position relative to current page number (i).
+            // If they are in the wrong position (out of order), swap them.
+            const auto x = orderedUpdate[j];
+            const auto range = orderingRulesMap.equal_range(x);
             for (auto it = range.first; it != range.second; ++it) {
-                if(v == it->second)
+                const auto y = it->second;
+                if(orderedUpdate[i] == y) // out of order?
                 {
-                    updateMapCounter++;
+                    swap(orderedUpdate[i], orderedUpdate[j]);
                     break;
                 }
             }
         }
-        if(updateMapCounter == updateMap.size())
+    }
+    return orderedUpdate;
+}
+
+void run(const vector<pair<int,int>>& orderingRules, const vector<vector<int>>& updates)
+{
+    multimap<int,int> orderingRulesMap;
+    for(const auto& rule : orderingRules)
+    {
+        orderingRulesMap.emplace(rule);
+    }
+
+    auto sumPart1 = 0u;
+    auto sumPart2 = 0u;
+    for(const auto& update : updates)
+    {
+        if(isOrderedUpdate(orderingRulesMap, update))
         {
-            sum += u[u.size() / 2];
+            sumPart1 += update[update.size() / 2];
         }
-        else
+        else // not ordered
         {
-            p2 += part2(u, orderMap);
+            const auto orderedUpdate = correctlyOrderUpdate(orderingRulesMap, update);
+            sumPart2 += orderedUpdate[orderedUpdate.size()/2];
         }
     }
-    cout << p2 << endl;
-    return sum;
+    cout << "Sum of middle page numbers (part1): " << sumPart1 << "\n";
+    cout << "Sum of middle page numbers (part2): " << sumPart2 << "\n";
 }
 
 int main(int argc, char** argv)
@@ -119,36 +127,42 @@ int main(int argc, char** argv)
     string line;
     vector<string> lines;
     while (getline(input, line)) {
-        lines.push_back(line);
+        lines.emplace_back(line);
     }
 
-    bool parseOrders = true; // false means parse updates
-    vector<pair<int,int>> orders;
+    enum class Parsing
+    {
+        OrderingRules,
+        Updates
+    };
+    auto parseMode = Parsing::OrderingRules;
+    vector<pair<int,int>> orderingRules;
     vector<vector<int>> updates;
-    for(auto& l : lines)
+    for(const auto& l : lines)
     {
         if(l.empty())
         {
-            parseOrders = false;
+            // Empty line is the demarcation between ordering rules and updates
+            parseMode = Parsing::Updates;
             continue;
         }
-        if(parseOrders)
+        if(parseMode == Parsing::OrderingRules)
         {
+            // Assuming x, y are two digit numbers
             auto x = stoi(l.substr(0, 2));
             auto y = stoi(l.substr(3, 2));
-            orders.push_back({x, y});
+            orderingRules.emplace_back(x, y);
         }
-        else
+        else if(parseMode == Parsing::Updates) 
         {
             vector<int> update;
             for (auto&& lRange : l | views::split(',')) {
                 string_view sv(&*lRange.begin(), ranges::distance(lRange));
-                update.push_back(stoi(string(sv)));
+                update.emplace_back(stoi(string(sv)));
             }
-            updates.push_back(update);
+            updates.emplace_back(update);
         }
     }
 
-    auto sumPart1 = part1(orders, updates);
-    cout << "Sum of middle page numbers (part1): " << sumPart1 << "\n";
+    run(orderingRules, updates);
 }
