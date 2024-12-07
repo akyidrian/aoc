@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <memory>
+#include <numeric>
 #include <sstream>
+#include <ranges>
 #include <vector>
 
 using namespace std;
@@ -32,37 +34,40 @@ int main(int argc, char** argv)
         lines.emplace_back(line);
     }
 
-    struct Position
+    struct SimulateGuard
     {
-        size_t x;
-        size_t y;
-    };
-    enum class Direction
-    {
-        Up,
-        Down,
-        Left,
-        Right
-    };
-    struct Guard
-    {
-        Position position{0, 0};
-        size_t xLabSize = 0;
-        size_t yLabSize = 0;
-        vector<string> labMap;
-        Direction direction = Direction::Up; // starting direction
-
-        Guard() = delete;
-        Guard(const vector<string> labMap) : xLabSize(labMap[0].size()), yLabSize(labMap.size()), labMap(labMap)
+        struct Position
         {
-            startingGuardPosition();
+            size_t x;
+            size_t y;
+        };
+        enum class Direction
+        {
+            Up,
+            Down,
+            Left,
+            Right
+        };
+
+        Position position{0, 0};
+        Direction direction = Direction::Up;
+
+        size_t xLabMapSize = 0;
+        size_t yLabMapSize = 0;
+        vector<string> labMap;
+        bool printLabMapStates = false;
+
+        SimulateGuard() = delete;
+        SimulateGuard(const vector<string>& labMap, bool printLabMapStates = false) : xLabMapSize(labMap[0].size()), yLabMapSize(labMap.size()), labMap(labMap), printLabMapStates(printLabMapStates)
+        {
+            initializeGuardPosition();
         }
 
-        void startingGuardPosition()
+        void initializeGuardPosition()
         {
-            for(auto y = 0u; y < labMap.size(); ++y)
+            for(auto y = 0u; y < yLabMapSize; ++y)
             {
-                for(auto x = 0u; x < labMap[0].size(); ++x)
+                for(auto x = 0u; x < xLabMapSize; ++x)
                 {
                     if(labMap[y][x] == '^')
                     {
@@ -73,29 +78,29 @@ int main(int argc, char** argv)
             }
         }
 
-        Position nextPosition()
+        Position nextPosition(const Position& current, const Direction& dir) const
         {
-            Position nextPosition = position;
-            if(direction == Direction::Up)
+            Position next = current;
+            if(dir == Direction::Up)
             {
-                nextPosition.y -= 1;
+                next.y -= 1;
             }
-            else if(direction == Direction::Down)
+            else if(dir == Direction::Down)
             {
-                nextPosition.y += 1;
+                next.y += 1;
             }
-            else if(direction == Direction::Right)
+            else if(dir == Direction::Right)
             {
-                nextPosition.x += 1;
+                next.x += 1;
             }
-            else if(direction == Direction::Left)
+            else if(dir == Direction::Left)
             {
-                nextPosition.x -= 1;
+                next.x -= 1;
             }
-            return nextPosition;
+            return next;
         }
 
-        char currentGuardChar()
+        char currentGuardChar() const
         {
             char guardChar = '.';
             if(direction == Direction::Up)
@@ -119,84 +124,79 @@ int main(int argc, char** argv)
 
         void move()
         {
-            const auto nextPos = nextPosition();
+            const auto nextPos = nextPosition(position, direction);
             labMap[position.y][position.x] = 'X';
             labMap[nextPos.y][nextPos.x] = currentGuardChar();
             position = nextPos;
         }
 
-        unsigned int countX()
+        unsigned int countVisitedPositions() const
         {
-            auto count = 0;
-            for(const auto& l : labMap)
-            {
-                for(const auto& c : l)
-                {
-                    if(c == 'X')
-                    {
-                        count++;
-                    }
-                }
-            }
-            return count;
+            return accumulate(labMap.begin(), labMap.end(), 0u, [](auto acc, const std::string& line) {
+                return acc + count(line.begin(), line.end(), 'X');
+            });
         }
 
-        unsigned int distinctPositions()
+        unsigned int patrol()
         {
-            //printLabMap();
+            printLabMap();
             while(!leavingArea())
             {
                 if(obstructed())
                 {
-                    rotate();
+                    rotate(direction);
                 }
                 move();
-                //printLabMap();
+                printLabMap();
             }
             labMap[position.y][position.x] = 'X';
-            //printLabMap();
-            return countX(); 
+            printLabMap();
+            return countVisitedPositions(); 
         }
 
-        void rotate()
+        void rotate(Direction& dir)
         {
-            if(direction == Direction::Up)
+            if(dir == Direction::Up)
             {
-                direction = Direction::Right;
+                dir = Direction::Right;
             }
-            else if(direction == Direction::Right)
+            else if(dir == Direction::Right)
             {
-                direction = Direction::Down;
+                dir = Direction::Down;
             }
-            else if(direction == Direction::Down)
+            else if(dir == Direction::Down)
             {
-                direction = Direction::Left;
+                dir = Direction::Left;
             }
-            else if(direction == Direction::Left)
+            else if(dir == Direction::Left)
             {
-                direction = Direction::Up;
+                dir = Direction::Up;
             }
         }
 
-        bool obstructed()
+        bool obstructed() const
         {
-            const auto nextPos = nextPosition();
-            const auto potentialObstruction = labMap[nextPos.y][nextPos.x];
-            return potentialObstruction == '#';
+            const auto nextPos = nextPosition(position, direction);
+            const auto c = labMap[nextPos.y][nextPos.x];
+            return c == '#';
         }
 
-        bool leavingArea()
+        bool leavingArea() const
         {
             const auto leavingLeft = position.x == 0 && direction == Direction::Left;
-            const auto leavingRight = position.x == xLabSize-1 && direction == Direction::Right;
+            const auto leavingRight = position.x == xLabMapSize-1 && direction == Direction::Right;
             const auto leavingUp = position.y == 0 && direction == Direction::Up;
-            const auto leavingDown = position.y == yLabSize-1 && direction == Direction::Down;
+            const auto leavingDown = position.y == yLabMapSize-1 && direction == Direction::Down;
             return leavingLeft || leavingRight || leavingUp || leavingDown;
         }
 
-        void printLabMap()
+        void printLabMap() const
         {
-            for(auto l : labMap)
+            if(!printLabMapStates)
+            {
+                return;
+            }
+            for(const auto& l : labMap)
             {
                 cout << l << "\n";
             }
@@ -204,6 +204,6 @@ int main(int argc, char** argv)
         }
     };
 
-    Guard guard(lines);
-    cout << guard.distinctPositions() << endl;
+    SimulateGuard simulate(lines);
+    cout << simulate.patrol() << endl;
 }
