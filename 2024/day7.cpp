@@ -1,4 +1,5 @@
 
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -7,6 +8,26 @@
 #include <vector>
 
 using namespace std;
+
+vector<string> generateCombinations(size_t n, const vector<char>& operators)
+{
+    std::vector<std::string> combinations;
+    int k = operators.size();
+    int total = std::pow(k, n);
+
+    for (auto i = 0u; i < total; ++i)
+    {
+        std::string combination;
+        auto value = i;
+        for (auto j = 0u; j < n; ++j)
+        {
+            combination += operators[value % k];
+            value /= k;
+        }
+        combinations.emplace_back(combination);
+    }
+    return combinations;
+}
 
 int main(int argc, char** argv)
 {
@@ -26,36 +47,54 @@ int main(int argc, char** argv)
         cerr << "Failed to open file" << "\n";
         return 1;
     }
-    auto& input = example;
+    auto& input = file;
     string line;
-    vector<int> testValues;
-    vector<vector<int>> operatorValuesList;
+    vector<unsigned long> testValues;
+    vector<vector<unsigned long>> operatorValuesList;
     while (getline(input, line)) {
         regex tokenRegex(R"((\d+):\s*((\d+\s*)+))");
         smatch match;
         if (std::regex_match(line, match, tokenRegex))
         {
-            testValues.emplace_back(stoi(match[1]));
+            testValues.emplace_back(stoul(match[1]));
             string operatorValuesStr = match[2].str();
-            vector<int> operatorValues;
+            vector<unsigned long> operatorValues;
             for (auto&& lineRange : operatorValuesStr | views::split(' '))
             {
                 string_view sv(&*lineRange.begin(), ranges::distance(lineRange));
-                operatorValues.emplace_back(stoi(string(sv)));
+                operatorValues.emplace_back(stoul(string(sv)));
             }
             operatorValuesList.emplace_back(operatorValues);
         }
     }
-    for(auto t : testValues)
+
+    unsigned long totalCalibrationResult = 0u;
+    const vector<char> operators{'+', '*'};
+    for(auto i = 0u; i < testValues.size(); ++i)
     {
-        cout << t << endl;
-    }
-    for(auto o : operatorValuesList)
-    {
-        for(auto i : o)
+        const auto testValue = testValues[i];
+        const auto operatorValues = operatorValuesList[i];
+        const auto combinations = generateCombinations(operatorValues.size()-1, operators);
+        for(const auto combination : combinations)
         {
-            cout << i << " ";
+            unsigned long candidateTestValue = operatorValues[0];
+            for(auto j = 0u; j < combination.size(); ++j)
+            {
+                if(combination[j] == '+')
+                {
+                    candidateTestValue += operatorValues[j+1];
+                }
+                else if(combination[j] == '*')
+                {
+                    candidateTestValue *= operatorValues[j+1];
+                }
+            }
+            if(testValue == candidateTestValue)
+            {
+                totalCalibrationResult += testValue;
+                break;
+            }
         }
-        cout << endl;
     }
+    cout << totalCalibrationResult << endl;
 }
