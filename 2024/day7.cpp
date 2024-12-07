@@ -29,6 +29,45 @@ vector<string> generateCombinations(size_t n, const vector<char>& operators)
     return combinations;
 }
 
+unsigned long totalCalibrationResult(const vector<unsigned long>& testValues,
+                                     const vector<vector<unsigned long>>& operatorValuesVec,
+                                     const vector<char>& operators)
+{
+    unsigned long totalCalibrationResult = 0u;
+    for(auto i = 0u; i < testValues.size(); ++i)
+    {
+        const auto testValue = testValues[i];
+        const auto operatorValues = operatorValuesVec[i];
+        const auto combinations = generateCombinations(operatorValues.size()-1, operators);
+        for(const auto combination : combinations)
+        {
+            unsigned long candidateTestValue = operatorValues[0];
+            for(auto j = 0u; j < combination.size(); ++j)
+            {
+                const auto operation = combination[j];
+                if(operation == '+')
+                {
+                    candidateTestValue += operatorValues[j+1];
+                }
+                else if(operation == '*')
+                {
+                    candidateTestValue *= operatorValues[j+1];
+                }
+                else if(operation == '|')
+                {
+                    candidateTestValue = stoul(to_string(candidateTestValue) + to_string(operatorValues[j+1]));
+                }
+            }
+            if(testValue == candidateTestValue)
+            {
+                totalCalibrationResult += testValue;
+                break;
+            }
+        }
+    }
+    return totalCalibrationResult;
+}
+
 int main(int argc, char** argv)
 {
     stringstream example(
@@ -50,51 +89,26 @@ int main(int argc, char** argv)
     auto& input = file;
     string line;
     vector<unsigned long> testValues;
-    vector<vector<unsigned long>> operatorValuesList;
+    vector<vector<unsigned long>> operatorValuesVec;
     while (getline(input, line)) {
         regex tokenRegex(R"((\d+):\s*((\d+\s*)+))");
         smatch match;
         if (std::regex_match(line, match, tokenRegex))
         {
             testValues.emplace_back(stoul(match[1]));
-            string operatorValuesStr = match[2].str();
+            const auto operatorValuesStr = match[2].str();
             vector<unsigned long> operatorValues;
-            for (auto&& lineRange : operatorValuesStr | views::split(' '))
+            for (auto&& opValuesStrRange : operatorValuesStr | views::split(' '))
             {
-                string_view sv(&*lineRange.begin(), ranges::distance(lineRange));
+                string_view sv(&*opValuesStrRange.begin(), ranges::distance(opValuesStrRange));
                 operatorValues.emplace_back(stoul(string(sv)));
             }
-            operatorValuesList.emplace_back(operatorValues);
+            operatorValuesVec.emplace_back(operatorValues);
         }
     }
 
-    unsigned long totalCalibrationResult = 0u;
-    const vector<char> operators{'+', '*'};
-    for(auto i = 0u; i < testValues.size(); ++i)
-    {
-        const auto testValue = testValues[i];
-        const auto operatorValues = operatorValuesList[i];
-        const auto combinations = generateCombinations(operatorValues.size()-1, operators);
-        for(const auto combination : combinations)
-        {
-            unsigned long candidateTestValue = operatorValues[0];
-            for(auto j = 0u; j < combination.size(); ++j)
-            {
-                if(combination[j] == '+')
-                {
-                    candidateTestValue += operatorValues[j+1];
-                }
-                else if(combination[j] == '*')
-                {
-                    candidateTestValue *= operatorValues[j+1];
-                }
-            }
-            if(testValue == candidateTestValue)
-            {
-                totalCalibrationResult += testValue;
-                break;
-            }
-        }
-    }
-    cout << totalCalibrationResult << endl;
+    const auto resultPart1 = totalCalibrationResult(testValues, operatorValuesVec, {'+', '*'});
+    const auto resultPart2 = totalCalibrationResult(testValues, operatorValuesVec, {'+', '*', '|'});
+    cout << "Part 1 total calibration result: " << resultPart1 << endl;
+    cout << "Part 2 total calibration result: " << resultPart2 << endl;
 }
