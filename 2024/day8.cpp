@@ -7,39 +7,46 @@
 
 using namespace std;
 
+using Position = pair<int,int>; // row, col
+using AntennaMap = unordered_map<char, vector<Position>>;
+using AntinodeMap = AntennaMap;
+
 auto createAntinodeMap(const vector<string>& lines, bool includeHarmonics = false)
 {
-    unordered_map<char, vector<pair<int,int>>> antennaMap;
-    const int rows = lines.size();
-    const int cols = lines[0].size();
-    for(auto rrr = 0u; rrr < rows; ++rrr)
+    // Creating a map data structure that stores the positions of each kind of antenna
+    AntennaMap antennaMap;
+    for(auto rrr = 0u; rrr < lines.size(); ++rrr)
     {
-        for(auto ccc = 0u; ccc < cols; ++ccc)
+        for(auto ccc = 0u; ccc < lines[0].size(); ++ccc)
         {
             const auto c = lines[rrr][ccc];
             if(c != '.') // is it antenna?
             {
-                auto it = antennaMap.find(c);
+                const auto it = antennaMap.find(c);
                 if(it != antennaMap.end())
                 {
                     it->second.emplace_back(rrr, ccc);
                 }
                 else // antenna doesn't exist in map yet...
                 {
-                    antennaMap.emplace(c, vector<pair<int,int>>{{rrr, ccc}});
+                    antennaMap.emplace(c, vector<Position>{{rrr, ccc}});
                 }
             }
         }
     }
 
-    auto inBounds = [&rows, &cols](pair<int,int> p){
+    // Creating a map data structure that stores the positions of each antinode generated
+    // for each kind of antenna. Note, duplicate antinode positions between different kinds
+    // of antenna may exist.
+    const int rows = lines.size();
+    const int cols = lines[0].size();
+    auto inBounds = [&rows, &cols](Position p){
         return p.first >= 0 && p.second >= 0 && p.first < rows && p.second < cols;
     };
-    unordered_map<char, vector<pair<int,int>>> antinodeMap;
+    AntinodeMap antinodeMap;
     for(const auto& [a, positions] : antennaMap)
     {
-        antinodeMap.emplace(a, vector<pair<int,int>>{});
-        const auto it = antinodeMap.find(a);
+        antinodeMap.emplace(a, vector<Position>{});
         for(auto i = 0; i < positions.size(); ++i)
         {
             for(auto j = i + 1; j < positions.size(); ++j)
@@ -47,34 +54,32 @@ auto createAntinodeMap(const vector<string>& lines, bool includeHarmonics = fals
                 const auto deltaRRR = positions[i].first - positions[j].first;
                 const auto deltaCCC = positions[i].second - positions[j].second;
 
+                Position antinodeI{positions[i].first + deltaRRR, positions[i].second + deltaCCC};
+                if(inBounds(antinodeI))
+                {
+                    antinodeMap[a].emplace_back(antinodeI);
+                }
+                Position antinodeJ{positions[j].first - deltaRRR, positions[j].second - deltaCCC};
+                if(inBounds(antinodeJ))
+                {
+                    antinodeMap[a].emplace_back(antinodeJ);
+                }
                 if(includeHarmonics)
                 {
-                    it->second.emplace_back(positions[i]);
-                    it->second.emplace_back(positions[j]);  // TODO: May be double counting
-                    pair<int,int> antinodeI{positions[i].first + deltaRRR, positions[i].second + deltaCCC};
+                    // TODO: This will add duplicates of antenna positions into the map
+                    antinodeMap[a].emplace_back(positions[i]);
+                    antinodeMap[a].emplace_back(positions[j]);
+                    antinodeI = {antinodeI.first + deltaRRR, antinodeI.second + deltaCCC};
                     while(inBounds(antinodeI))
                     {
-                        it->second.emplace_back(antinodeI);
+                        antinodeMap[a].emplace_back(antinodeI);
                         antinodeI = {antinodeI.first + deltaRRR, antinodeI.second + deltaCCC};
                     }
-                    pair<int,int> antinodeJ{positions[j].first - deltaRRR, positions[j].second - deltaCCC};
+                    antinodeJ = {antinodeJ.first - deltaRRR, antinodeJ.second - deltaCCC};
                     while(inBounds(antinodeJ))
                     {
-                        it->second.emplace_back(antinodeJ);
+                        antinodeMap[a].emplace_back(antinodeJ);
                         antinodeJ = {antinodeJ.first - deltaRRR, antinodeJ.second - deltaCCC};
-                    }
-                }
-                else
-                {
-                    pair<int,int> antinodeI{positions[i].first + deltaRRR, positions[i].second + deltaCCC};
-                    if(inBounds(antinodeI))
-                    {
-                        it->second.emplace_back(antinodeI);
-                    }
-                    pair<int,int> antinodeJ{positions[j].first - deltaRRR, positions[j].second - deltaCCC};
-                    if(inBounds(antinodeJ))
-                    {
-                        it->second.emplace_back(antinodeJ);
                     }
                 }
             }
@@ -83,9 +88,9 @@ auto createAntinodeMap(const vector<string>& lines, bool includeHarmonics = fals
     return antinodeMap;
 }
 
-auto uniqueAntinodePositions(const unordered_map<char, vector<pair<int,int>>>& antinodeMap)
+auto uniqueAntinodePositions(const AntinodeMap& antinodeMap)
 {
-    set<pair<int,int>> antinodeSet;
+    set<Position> antinodeSet;
     for (const auto& [_, antinodePositions] : antinodeMap) {
         antinodeSet.insert(antinodePositions.begin(), antinodePositions.end());
     }
