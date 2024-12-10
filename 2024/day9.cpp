@@ -1,10 +1,10 @@
 #include <fstream>
 #include <iostream>
+#include <list>
 #include <sstream>
+#include <stack>
 #include <string>
 #include <vector>
-#include <list>
-#include <stack>
 
 using namespace std;
 
@@ -30,6 +30,7 @@ auto calculateChecksum(const vector<unsigned int>& blockFormat)
     auto checksum = 0ul;
     for(auto i = 0u; i < blockFormat.size(); ++i)
     {
+        // blockFormat[i] is using one-based indexing, with 0 representing a free block
         const auto id = !blockFormat[i] ? 0 : blockFormat[i]-1;
         checksum += i * id;
     }
@@ -111,6 +112,7 @@ int main(int argc, char** argv)
     vector<unsigned int> blockFormat;
     list<Chunk> freeChunks;
     stack<Chunk> fileChunks;
+    // TODO: Possibly could have used a single list<Chunk> for both free and file chunks
     for(auto i = 0u; i < denseFormat.size(); ++i)
     {
         const auto fileBlock = !(i % 2);
