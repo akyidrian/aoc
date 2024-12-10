@@ -2,6 +2,7 @@
 #include <array>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <numeric>
 #include <sstream>
 #include <vector>
@@ -22,18 +23,29 @@ struct Position
     {
         return Position{.y = y + other.y, .x = x + other.x};
     }
+
+    bool operator<(const Position& other) const
+    {
+        return std::tie(y, x) < std::tie(other.y, other.x);
+    }
+
+    bool inBounds(const int xSize, const int ySize) const
+    {
+        return x >= 0 && y >= 0 && x < xSize && y < ySize;
+    }
 };
+
+enum class Direction : uint8_t
+{
+    Up = 0,
+    Down,
+    Left,
+    Right
+};
+using direction_t = std::underlying_type_t<Direction>;
 
 struct Guard
 {
-    enum class Direction : uint8_t
-    {
-        Up = 0,
-        Down,
-        Left,
-        Right
-    };
-    using direction_t = std::underlying_type_t<Direction>;
 
     Position pos{.y = 0,.x = 0};
     Direction dir = Direction::Up;
@@ -66,7 +78,7 @@ struct Guard
         pos = pos + dirMap[static_cast<direction_t>(dir)];
     }
 
-    Position nextPos()
+    Position nextPos() const
     {
         return pos + dirMap[static_cast<direction_t>(dir)];
     }
@@ -76,7 +88,7 @@ struct Guard
         dir = static_cast<Direction>(nextDirLookup[static_cast<direction_t>(dir)]);
     }
 
-    Direction nextDir()
+    Direction nextDir() const
     {
         return static_cast<Direction>(nextDirLookup[static_cast<direction_t>(dir)]);
     }
@@ -99,6 +111,15 @@ class SimulateLab
         initializeGuard();
     }
 
+    void printLabMap(const vector<string>& labMap) const
+    {
+        for(const auto& l : labMap)
+        {
+            cout << l << "\n";
+        }
+        cout << endl;
+    }
+
     unsigned int patrol()
     {
         auto count = 0u;
@@ -116,13 +137,61 @@ class SimulateLab
         return distinctPositionsVisited();
     }
 
-    void printLabMap() const
+    bool simulateNewObstruction(auto& labMap)
     {
-        for(const auto& l : m_labMap)
+        const auto newObsPos = m_guard.nextPos();
+        const auto newObsinBounds = newObsPos.inBounds(m_ylabMapSize, m_xlabMapSize);
+        const auto notAlreadyObstructed = labMapChar(labMap, newObsPos) != '#';
+        const auto notVisited = labMapChar(labMap, newObsPos) != 'X'; // required to avoid "time paradox"
+        auto didWeLoop = false;
+        if(newObsinBounds && notAlreadyObstructed && notVisited)
         {
-            cout << l << "\n";
+            updateLabMap(labMap, newObsPos, '#');
+            auto guardCopy = m_guard;
+            multimap<Position, Direction> beenHere;
+            auto looped = [&beenHere, &guardCopy]()
+            {
+                auto range = beenHere.equal_range(guardCopy.nextPos());
+                for (auto it = range.first; it != range.second; ++it)
+                {
+                    if(it->second == guardCopy.dir)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            while(!guardCopy.leavingArea(m_ylabMapSize, m_xlabMapSize) && !looped())
+            {
+                while(labMapChar(labMap, guardCopy.nextPos()) == '#')
+                {
+                    guardCopy.rotate();
+                    beenHere.emplace(guardCopy.pos, guardCopy.dir);
+                }
+                guardCopy.step();
+                beenHere.emplace(guardCopy.pos, guardCopy.dir);
+            }
+            updateLabMap(labMap, newObsPos, 'X');
+            didWeLoop = looped();
         }
-        cout << endl;
+        return didWeLoop;
+    }
+
+    unsigned int obstructedPatrols()
+    {
+        auto count = 0u;
+        auto labMap = m_labMap;
+        while(!m_guard.leavingArea(m_ylabMapSize, m_xlabMapSize))
+        {
+            // Progress guard forward...
+            while(labMapChar(labMap, m_guard.nextPos()) == '#')
+            {
+                m_guard.rotate();
+            }
+            count += simulateNewObstruction(labMap);
+            m_guard.step();
+        }
+        return count;
     }
 
 private:
@@ -135,7 +204,7 @@ private:
                 if(m_labMap[y][x] == '^')
                 {
                     m_guard.pos = {.y = y, .x = x};
-                    m_guard.dir = Guard::Direction::Up;
+                    m_guard.dir = Direction::Up;
                 }
             }
         }
@@ -146,9 +215,19 @@ private:
         return m_labMap[p.y][p.x];
     }
 
+    char labMapChar(vector<string>& labMap, const Position& p)
+    {
+        return labMap[p.y][p.x];
+    }
+
     void updateLabMap(const Position& p, const char c)
     {
         m_labMap[p.y][p.x] = c;
+    }
+
+    void updateLabMap(vector<string>& labMap, const Position& p, const char c)
+    {
+        labMap[p.y][p.x] = c;
     }
 
     unsigned int distinctPositionsVisited() const
@@ -193,8 +272,7 @@ int main(int argc, char** argv)
     }
 
     SimulateLab part1(lines);
-    part1.printLabMap();
     cout << part1.patrol() << endl;
-    //SimulateLab part2(lines);
-    //cout << part2.obstructedPatrols() << endl;
+    SimulateLab part2(lines);
+    cout << part2.obstructedPatrols() << endl;
 }
