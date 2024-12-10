@@ -106,7 +106,33 @@ int main(int argc, char** argv)
         }
     }
 
-    auto stepTrailPath = [&topoMap](queue<Position>& trailPositions, unordered_set<Position, Position::Hash>& trailEnd, const Position& current)
+//    auto stepTrailPath = [&topoMap](queue<Position>& trailPositions, unordered_set<Position, Position::Hash>& trailEnd, const Position& current)
+//    {
+//        const auto ySize = topoMap.size();
+//        const auto xSize = topoMap[0].size();
+//        const auto currentHeight = getHeight(topoMap, current);
+//        for(const auto& dir : directionMap)
+//        {
+//            const auto next = current + dir;
+//            if(next.inBounds(xSize, ySize))
+//            {
+//                const auto nextHeight = getHeight(topoMap, next);
+//                const auto goingUp = (nextHeight - currentHeight) == 1;
+//                if(goingUp && nextHeight == 9)
+//                {
+//                    // There may be more than one path to a trail end
+//                    // which is why we use an unordered_set
+//                    trailEnd.emplace(next);
+//                }
+//                else if(goingUp)
+//                {
+//                    trailPositions.emplace(next);
+//                }
+//            }
+//        }
+//    };
+
+    auto stepTrailPath = [&topoMap](queue<Position>& trailPositions, vector<Position>& trailEnd, const Position& current)
     {
         const auto ySize = topoMap.size();
         const auto xSize = topoMap[0].size();
@@ -122,7 +148,7 @@ int main(int argc, char** argv)
                 {
                     // There may be more than one path to a trail end
                     // which is why we use an unordered_set
-                    trailEnd.emplace(next);
+                    trailEnd.emplace_back(next);
                 }
                 else if(goingUp)
                 {
@@ -131,12 +157,12 @@ int main(int argc, char** argv)
             }
         }
     };
-
     auto totalScore = 0u;
     while(!trailheads.empty())
     {
         queue<Position> trailPositions;
-        unordered_set<Position, Position::Hash> trailtail;
+        //unordered_set<Position, Position::Hash> trailtail;
+        vector<Position> trailtail;
         stepTrailPath(trailPositions, trailtail, trailheads.front());
         while(!trailPositions.empty())
         {
