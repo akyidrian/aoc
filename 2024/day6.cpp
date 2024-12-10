@@ -1,12 +1,170 @@
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <numeric>
 #include <sstream>
-#include <ranges>
 #include <vector>
 
 using namespace std;
+
+struct Position
+{
+    int y = 0;
+    int x = 0;
+
+    Position operator+(const Position& other) const
+    {
+        return Position{.y = y + other.y, .x = x + other.x};
+    }
+
+    Position operator+=(const Position& other) const
+    {
+        return Position{.y = y + other.y, .x = x + other.x};
+    }
+};
+
+struct Guard
+{
+    enum class Direction : uint8_t
+    {
+        Up = 0,
+        Down,
+        Left,
+        Right
+    };
+    using direction_t = std::underlying_type_t<Direction>;
+
+    Position pos{.y = 0,.x = 0};
+    Direction dir = Direction::Up;
+
+    static constexpr array<char, 4> charMap{{'^', 'v', '<', '>'}};
+    static constexpr array<Position, 4> dirMap{{/*up*/{-1, 0}, /*down*/ {1, 0}, /*left*/ {0, -1}, /*right*/ {0, 1}}};
+    static constexpr array<direction_t, 4> nextDirLookup{{3, 2, 0, 1}};
+
+    char character() const
+    {
+        return charMap[static_cast<direction_t>(dir)];
+    }
+
+    bool leavingArea(size_t yLabMapSize, size_t xLabMapSize)
+    {
+        return leavingArea(pos, dir, yLabMapSize, xLabMapSize);
+    }
+
+    bool leavingArea(Position& pos, const Direction& dir, size_t yLabMapSize, size_t xLabMapSize) const
+    {
+        const auto leavingUp = pos.y == 0 && dir == Direction::Up;
+        const auto leavingDown = pos.y == yLabMapSize-1 && dir == Direction::Down;
+        const auto leavingLeft = pos.x == 0 && dir == Direction::Left;
+        const auto leavingRight = pos.x == xLabMapSize-1 && dir == Direction::Right;
+        return leavingLeft || leavingRight || leavingUp || leavingDown;
+    }
+
+    void step()
+    {
+        pos = pos + dirMap[static_cast<direction_t>(dir)];
+    }
+
+    Position nextPos()
+    {
+        return pos + dirMap[static_cast<direction_t>(dir)];
+    }
+
+    void rotate()
+    {
+        dir = static_cast<Direction>(nextDirLookup[static_cast<direction_t>(dir)]);
+    }
+
+    Direction nextDir()
+    {
+        return static_cast<Direction>(nextDirLookup[static_cast<direction_t>(dir)]);
+    }
+
+    // Overload operator<< to print Guard state
+    friend ostream& operator<<(ostream& os, const Guard& g)
+    {
+        os << "Position: (" << g.pos.y << ", " << g.pos.x << "), " << "Direction: " << g.character();
+        return os;
+    }
+};
+
+class SimulateLab
+{
+  public:
+    SimulateLab() = delete;
+    SimulateLab(vector<string> labMap)
+    : m_labMap(labMap), m_xlabMapSize(labMap[0].size()), m_ylabMapSize(labMap.size())
+    {
+        initializeGuard();
+    }
+
+    unsigned int patrol()
+    {
+        auto count = 0u;
+        while(!m_guard.leavingArea(m_ylabMapSize, m_xlabMapSize))
+        {
+            while(labMapChar(m_guard.nextPos()) == '#')
+            {
+                m_guard.rotate();
+            }
+            updateLabMap(m_guard.pos, 'X');
+            m_guard.step();
+            updateLabMap(m_guard.pos, m_guard.character());
+        }
+        updateLabMap(m_guard.pos, 'X'); // mark the final position before leaving lab
+        return distinctPositionsVisited();
+    }
+
+    void printLabMap() const
+    {
+        for(const auto& l : m_labMap)
+        {
+            cout << l << "\n";
+        }
+        cout << endl;
+    }
+
+private:
+    void initializeGuard()
+    {
+        for(auto y = 0; y < m_ylabMapSize; ++y)
+        {
+            for(auto x = 0; x < m_xlabMapSize; ++x)
+            {
+                if(m_labMap[y][x] == '^')
+                {
+                    m_guard.pos = {.y = y, .x = x};
+                    m_guard.dir = Guard::Direction::Up;
+                }
+            }
+        }
+    }
+
+    char labMapChar(const Position& p)
+    {
+        return m_labMap[p.y][p.x];
+    }
+
+    void updateLabMap(const Position& p, const char c)
+    {
+        m_labMap[p.y][p.x] = c;
+    }
+
+    unsigned int distinctPositionsVisited() const
+    {
+        auto sumOverRow = [](auto sum, const auto& l)
+        {
+            return sum + std::count(l.begin(), l.end(), 'X');
+        };
+        return accumulate(m_labMap.begin(), m_labMap.end(), 0u, sumOverRow);
+    }
+
+    Guard m_guard;
+    vector<string> m_labMap;
+    const size_t m_xlabMapSize;
+    const size_t m_ylabMapSize;
+};
 
 int main(int argc, char** argv)
 {
@@ -34,176 +192,9 @@ int main(int argc, char** argv)
         lines.emplace_back(line);
     }
 
-    struct SimulateGuard
-    {
-        struct Position
-        {
-            size_t x;
-            size_t y;
-        };
-        enum class Direction
-        {
-            Up,
-            Down,
-            Left,
-            Right
-        };
-
-        Position position{0, 0};
-        Direction direction = Direction::Up;
-
-        size_t xLabMapSize = 0;
-        size_t yLabMapSize = 0;
-        vector<string> labMap;
-        bool printLabMapStates = false;
-
-        SimulateGuard() = delete;
-        SimulateGuard(const vector<string>& labMap, bool printLabMapStates = false) : xLabMapSize(labMap[0].size()), yLabMapSize(labMap.size()), labMap(labMap), printLabMapStates(printLabMapStates)
-        {
-            initializeGuardPosition();
-        }
-
-        void initializeGuardPosition()
-        {
-            for(auto y = 0u; y < yLabMapSize; ++y)
-            {
-                for(auto x = 0u; x < xLabMapSize; ++x)
-                {
-                    if(labMap[y][x] == '^')
-                    {
-                        position.x = x;
-                        position.y = y;
-                    }
-                }
-            }
-        }
-
-        Position nextPosition(const Position& current, const Direction& dir) const
-        {
-            Position next = current;
-            if(dir == Direction::Up)
-            {
-                next.y -= 1;
-            }
-            else if(dir == Direction::Down)
-            {
-                next.y += 1;
-            }
-            else if(dir == Direction::Right)
-            {
-                next.x += 1;
-            }
-            else if(dir == Direction::Left)
-            {
-                next.x -= 1;
-            }
-            return next;
-        }
-
-        char currentGuardChar() const
-        {
-            char guardChar = '.';
-            if(direction == Direction::Up)
-            {
-                guardChar = '^';
-            }
-            else if(direction == Direction::Down)
-            {
-                guardChar = 'v';
-            }
-            else if(direction == Direction::Right)
-            {
-                guardChar = '>';
-            }
-            else if(direction == Direction::Left)
-            {
-                guardChar = '<';
-            }
-            return guardChar;
-        }
-
-        void move()
-        {
-            const auto nextPos = nextPosition(position, direction);
-            labMap[position.y][position.x] = 'X';
-            labMap[nextPos.y][nextPos.x] = currentGuardChar();
-            position = nextPos;
-        }
-
-        unsigned int countVisitedPositions() const
-        {
-            return accumulate(labMap.begin(), labMap.end(), 0u, [](auto acc, const std::string& line) {
-                return acc + count(line.begin(), line.end(), 'X');
-            });
-        }
-
-        unsigned int patrol()
-        {
-            printLabMap();
-            while(!leavingArea())
-            {
-                if(obstructed())
-                {
-                    rotate(direction);
-                }
-                move();
-                printLabMap();
-            }
-            labMap[position.y][position.x] = 'X';
-            printLabMap();
-            return countVisitedPositions(); 
-        }
-
-        void rotate(Direction& dir)
-        {
-            if(dir == Direction::Up)
-            {
-                dir = Direction::Right;
-            }
-            else if(dir == Direction::Right)
-            {
-                dir = Direction::Down;
-            }
-            else if(dir == Direction::Down)
-            {
-                dir = Direction::Left;
-            }
-            else if(dir == Direction::Left)
-            {
-                dir = Direction::Up;
-            }
-        }
-
-        bool obstructed() const
-        {
-            const auto nextPos = nextPosition(position, direction);
-            const auto c = labMap[nextPos.y][nextPos.x];
-            return c == '#';
-        }
-
-        bool leavingArea() const
-        {
-            const auto leavingLeft = position.x == 0 && direction == Direction::Left;
-            const auto leavingRight = position.x == xLabMapSize-1 && direction == Direction::Right;
-            const auto leavingUp = position.y == 0 && direction == Direction::Up;
-            const auto leavingDown = position.y == yLabMapSize-1 && direction == Direction::Down;
-            return leavingLeft || leavingRight || leavingUp || leavingDown;
-        }
-
-        void printLabMap() const
-        {
-            if(!printLabMapStates)
-            {
-                return;
-            }
-            for(const auto& l : labMap)
-            {
-                cout << l << "\n";
-            }
-            cout << endl;
-        }
-    };
-
-    SimulateGuard simulate(lines);
-    cout << simulate.patrol() << endl;
+    SimulateLab part1(lines);
+    part1.printLabMap();
+    cout << part1.patrol() << endl;
+    //SimulateLab part2(lines);
+    //cout << part2.obstructedPatrols() << endl;
 }
