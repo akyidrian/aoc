@@ -67,6 +67,7 @@ auto createAntinodeMap(const vector<string>& lines, bool includeHarmonics = fals
                 if(includeHarmonics)
                 {
                     // TODO: This will add duplicates of antenna positions into the map
+                    //       which currently the uniqueAntinodePositions helps overcome
                     antinodeMap[a].emplace_back(positions[i]);
                     antinodeMap[a].emplace_back(positions[j]);
                     antinodeI = {antinodeI.first + deltaRRR, antinodeI.second + deltaCCC};

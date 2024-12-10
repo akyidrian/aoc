@@ -111,6 +111,7 @@ int main(int argc, char** argv)
     vector<unsigned int> blockFormat;
     list<Chunk> freeChunks;
     stack<Chunk> fileChunks;
+    // TODO: Possibly could have used a single list<Chunk> for both free and file chunks
     for(auto i = 0u; i < denseFormat.size(); ++i)
     {
         const auto fileBlock = !(i % 2);
