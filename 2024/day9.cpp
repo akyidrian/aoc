@@ -8,6 +8,89 @@
 
 using namespace std;
 
+struct Chunk
+{
+    unsigned int index; // to blockFormat memory
+    size_t size;
+};
+
+void printBlockFormat(const vector<unsigned int>& blockFormat)
+{
+    for(const auto& b : blockFormat)
+    {
+        // b is using one-based indexing, with 0 representing a free block
+        const string id = !b ? "." : to_string(b-1);
+        cout << id;
+    }
+    cout << endl;
+}
+
+auto calculateChecksum(const vector<unsigned int>& blockFormat)
+{
+    auto checksum = 0ul;
+    for(auto i = 0u; i < blockFormat.size(); ++i)
+    {
+        const auto id = !blockFormat[i] ? 0 : blockFormat[i]-1;
+        checksum += i * id;
+    }
+    return checksum;
+}
+
+auto part1(vector<unsigned int> blockFormat)
+{
+    auto i = 0u;
+    auto j = blockFormat.size()-1;
+    while(true)
+    {
+        while(blockFormat[i]) // file block
+        {
+            i++;
+        }
+        while(!blockFormat[j]) // free block
+        {
+            j--;
+        }
+        if(i > j) // processed blocks
+        {
+            break;
+        }
+        swap(blockFormat[i], blockFormat[j]);
+    }
+    return calculateChecksum(blockFormat);
+}
+
+auto part2(vector<unsigned int> blockFormat, list<Chunk>& freeChunks, stack<Chunk>& fileChunks)
+{
+    while(!fileChunks.empty())
+    {
+        const auto fileChunk = fileChunks.top();
+        fileChunks.pop();
+        for (auto freeIt = freeChunks.begin(); freeIt != freeChunks.end() && freeIt->index < fileChunk.index;)
+        {
+            const int freeSpace = freeIt->size - fileChunk.size;
+            if(freeSpace >= 0)
+            {
+                const auto freeBlockBegin = blockFormat.begin()+freeIt->index;
+                const auto freeBlockEnd = freeBlockBegin+fileChunk.size; // using fileChunk.size as our fill size
+                const auto fileBlockBegin = blockFormat.begin()+fileChunk.index;
+                const auto fileBlockEnd = fileBlockBegin+fileChunk.size;
+                const auto id = blockFormat[fileChunk.index];
+                fill(freeBlockBegin, freeBlockEnd, id);
+                fill(fileBlockBegin, fileBlockEnd, 0);
+                freeIt->index += fileChunk.size;
+                freeIt->size = freeSpace;
+                if(freeSpace == 0) // cleaning out 0 free space nodes from our list
+                {
+                    freeChunks.erase(freeIt);
+                }
+                break;
+            }
+            freeIt++;
+        }
+    }
+    return calculateChecksum(blockFormat);
+}
+
 int main(int argc, char** argv)
 {
     stringstream example(R"(2333133121414131402)");
@@ -23,20 +106,16 @@ int main(int argc, char** argv)
         cerr << "Error reading file" << "\n";
     }
 
-    auto idNumber = 1u; // Starting at 1 for file block id
+    // Using one-based indexing for idNumber with zero representing free space
+    auto idNumber = 1u;
     vector<unsigned int> blockFormat;
-    struct Chunk
-    {
-        unsigned int index;
-        size_t size;
-    };
     list<Chunk> freeChunks;
     stack<Chunk> fileChunks;
     for(auto i = 0u; i < denseFormat.size(); ++i)
     {
         const auto fileBlock = !(i % 2);
         auto size = denseFormat[i] - '0';
-        auto id = 0u; // Representing 0 as a free block
+        auto id = 0u;
         auto index = blockFormat.size();
         if(fileBlock && size)
         {
@@ -45,7 +124,7 @@ int main(int argc, char** argv)
         }
         else if(!fileBlock && size)
         {
-            id = 0u;
+            // id = 0u;
             freeChunks.emplace_back(index, size);
         }
         while(size--)
@@ -53,71 +132,8 @@ int main(int argc, char** argv)
             blockFormat.emplace_back(id);
         }
     }
-
-    cout << denseFormat << endl;
-    auto printBlocks = [&blockFormat](){
-        for(auto b : blockFormat)
-        {
-            string id = !b ? "." : to_string(b-1);
-            cout << id;
-        }
-        cout << endl;
-    };
-//    auto i = 0u;
-//    auto j = blockFormat.size()-1;
-//    while(true)
-//    {
-//        while(blockFormat[i])
-//        {
-//            i++;
-//        }
-//        while(!blockFormat[j])
-//        {
-//            j--;
-//        }
-//        if(i > j)
-//        {
-//            break;
-//        }
-//        swap(blockFormat[i], blockFormat[j]);
-//        //cout << i << ", " << j << endl;
-//        //printBlocks();
-//    }
-    printBlocks();
-    while(!fileChunks.empty())
-    {
-        const auto fileChunk = fileChunks.top();
-        fileChunks.pop();
-        for (auto it = freeChunks.begin(); it != freeChunks.end() && it->index < fileChunk.index;)
-        {
-            const auto freeChunk = *it;
-            const int freeSpace = freeChunk.size - fileChunk.size;
-            if(freeSpace >= 0)
-            {
-                const auto freeBlockBegin = blockFormat.begin()+freeChunk.index;
-                const auto freeBlockEnd = freeBlockBegin+fileChunk.size; // fileBlock is always smaller
-                const auto fileBlockBegin = blockFormat.begin()+fileChunk.index;
-                const auto fileBlockEnd = fileBlockBegin+fileChunk.size;
-                const auto id = blockFormat[fileChunk.index];
-                fill(freeBlockBegin, freeBlockEnd, id);
-                fill(fileBlockBegin, fileBlockEnd, 0);
-                it->index += fileChunk.size;
-                it->size = freeSpace;
-                if(freeSpace == 0)
-                {
-                    freeChunks.erase(it);
-                }
-                break;
-            }
-            it++;
-        }
-    }
-    unsigned long checksum = 0u;
-    for(auto i = 0u; i < blockFormat.size(); ++i)
-    {
-        auto id = !blockFormat[i] ? 0 : blockFormat[i]-1;
-        checksum += i * id;
-    }
-    printBlocks();
-    cout << checksum << endl;
+    auto checksumP1 = part1(blockFormat);
+    auto checksumP2 = part2(blockFormat, freeChunks, fileChunks);
+    cout << checksumP1 << endl;
+    cout << checksumP2 << endl;
 }
