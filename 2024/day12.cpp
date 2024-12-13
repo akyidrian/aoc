@@ -51,6 +51,7 @@ struct Position
         }
     };
 };
+using PositionSet = unordered_set<Position, Position::Hash>;
 
 enum class Direction : uint8_t
 {
@@ -74,14 +75,13 @@ struct Region
     unsigned int perimeter;
 };
 
-auto stepRegion(queue<Position>& regionPositions, unordered_set<Position, Position::Hash>& plotVisited, const vector<string>& farm)
+auto stepRegion(queue<Position>& regionPositions, PositionSet& plotVisited, const vector<string>& farm)
 {
     const auto ySize = farm.size();
     const auto xSize = farm[0].size();
 
     const auto& current = regionPositions.front();
     regionPositions.pop();
-    //cout << current << " : current" << endl;
 
     const auto currentPlot = getPlot(farm, current);
     auto perimeter = 0u;
@@ -91,61 +91,69 @@ auto stepRegion(queue<Position>& regionPositions, unordered_set<Position, Positi
         if(!next.inBounds(ySize, xSize))
         {
             perimeter += 1;
-            //cout << next << ": not bounds: " << perimeter << endl;
             continue;
         }
-        const auto nextPlot = getPlot(farm, next);
-        const auto samePlot = currentPlot == nextPlot;
-        const auto haveVisited = plotVisited.find(next) != plotVisited.end();
-        if(haveVisited)
+        const auto visited = plotVisited.find(next) != plotVisited.end();
+        if(visited)
         {
-            //cout << next << " : skip " << endl;
             continue;
         }
-        if(!samePlot)
+
+        const auto sameRegion = currentPlot == getPlot(farm, next);
+        if(!sameRegion)
         {
             perimeter += 1;
-            //cout << next << ": not plot: " << perimeter << endl;
             continue;
         }
-        else if(samePlot)
-        {
-            //cout << next << ": plot: " << perimeter << endl;
-            regionPositions.emplace(next);
-            plotVisited.emplace(next);
-        }
+        regionPositions.emplace(next);
+        plotVisited.emplace(next);
     }
     return pair<unsigned int, unsigned int>{1, perimeter};
 }
 
-Region findRegion(unordered_set<Position, Position::Hash>& farmPlotVisited, const vector<string>& farm, const Position& start)
+Region findRegion(PositionSet& farmPlotVisited, const vector<string>& farm, const Position& start)
 {
     queue<Position> regionPositions;
     regionPositions.emplace(start);
+    PositionSet regionPlotVisited;
+    regionPlotVisited.emplace(start);
+
     auto area = 0u;
     auto perimeter = 0u;
-    //cout << getPlot(farm, start) << endl;
-    unordered_set<Position, Position::Hash> regionPlotVisited;
-    regionPlotVisited.emplace(start);
     while(!regionPositions.empty())
     {
         auto [stepArea, stepPerimeter] = stepRegion(regionPositions, regionPlotVisited, farm);
         area += stepArea;
         perimeter += stepPerimeter;
-        //cout << "area: " << area << ", peri=" << perimeter << endl;
     }
     farmPlotVisited.insert(regionPlotVisited.begin(), regionPlotVisited.end());
-    //cout << "-------" << endl;
     return {.type = getPlot(farm, start), .area = area, .perimeter = perimeter};
 }
 
-unsigned long calculateCost(const vector<Region>& regions)
+unsigned long calculateTotalPrice(const vector<string>& farm)
 {
+    const auto yFarmSize = farm.size();
+    const auto xFarmSize = farm[0].size();
+    PositionSet farmPlotVisited;
+    vector<Region> regions;
+    for(auto y = 0; y < yFarmSize; ++y)
+    {
+        for(auto x = 0; x < xFarmSize; ++x)
+        {
+            Position p{y,x};
+            const auto visited = farmPlotVisited.find(p) != farmPlotVisited.end();
+            if(!visited)
+            {
+                regions.emplace_back(findRegion(farmPlotVisited, farm, p));
+            }
+        }
+    }
     return accumulate(regions.begin(), regions.end(), 0ul, [](auto sum, const Region& r){ return sum + (r.area * r.perimeter); });
 }
 
 int main(int argc, char** argv)
 {
+    // Part 1 Examples
     stringstream example1(R"(AAAA
 BBCD
 BBCC
@@ -165,6 +173,19 @@ VVIIICJJEE
 MIIIIIJJEE
 MIIISIJEEE
 MMMISSJEEE)");
+
+    // Part 2 Examples
+    stringstream example4(R"(EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE)");
+    stringstream example5(R"(AAAAAA
+AAABBA
+AAABBA
+ABBAAA
+ABBAAA
+AAAAAA)");
     ifstream file("../day12.txt");
     if (!file)
     {
@@ -177,29 +198,8 @@ MMMISSJEEE)");
     while (getline(input, line))
     {
         farm.emplace_back(line);
-        //cout << line << endl;
     }
 
-    const auto yFarmSize = farm.size();
-    const auto xFarmSize = farm[0].size();
-    unordered_set<Position, Position::Hash> farmPlotVisited;
-    vector<Region> regions;
-    for(auto y = 0; y < yFarmSize; ++y)
-    {
-        for(auto x = 0; x < xFarmSize; ++x)
-        {
-            Position p{y,x};
-            const auto plotVisited = farmPlotVisited.find(p) != farmPlotVisited.end();
-            if(!plotVisited)
-            {
-                regions.emplace_back(findRegion(farmPlotVisited, farm, p));
-            }
-        }
-    }
-    for(auto& r : regions)
-    {
-        cout << r.type << " " << r.area << " " << r.perimeter << endl;
-    }
-    const auto totalPrice = calculateCost(regions);
+    const auto totalPrice = calculateTotalPrice(farm);
     cout << totalPrice << endl;
 }
