@@ -10,6 +10,57 @@
 
 using namespace std;
 
+// Used to help find all of a regions sides
+class WeightedQuickUnionUF
+{
+private:
+    vector<int> id; // Parent link (site indexed)
+    vector<int> sz; // Size of component for roots (site indexed)
+    int count; // Number of components
+
+     // Follow links to find a root.
+    int find(int p)
+    {
+        while (p != id[p])
+        {
+            id[p] = id[id[p]]; // Path compression
+            p = id[p];
+        }
+        return p;
+    }
+public:
+    WeightedQuickUnionUF(int N) : id(N), sz(N), count(N)
+    {
+        for (int i = 0; i < N; i++) id[i] = i;
+        for (int i = 0; i < N; i++) sz[i] = 1;
+    }
+
+    int numberOfComponents()
+    { return count; }
+
+    bool connected(int p, int q)
+    { return find(p) == find(q); }
+
+    void unite(int p, int q)
+    {
+        int i = find(p);
+        int j = find(q);
+        if (i == j) return;
+        // Make smaller root point to larger one.
+        if (sz[i] < sz[j]) { id[i] = j; sz[j] += sz[i]; }
+        else { id[j] = i; sz[i] += sz[j]; }
+        count--;
+    }
+};
+
+struct Region 
+{
+    char type;
+    size_t area; // Number of garden plots the region contains
+    size_t perimeter; // Number of sides of garden plots in the region that do not touch another garden plot in the same region
+    size_t sides; // Number of sides of the region (straight sections of fencing)
+};
+
 struct Position
 {
     int y = 0;
@@ -64,8 +115,10 @@ enum class Direction : uint8_t
     Right
 };
 constexpr array<Direction, 4> allDirections{Direction::Up, Direction::Down, Direction:: Left, Direction::Right};
-constexpr array<Position, 4> directionMap{{/*up*/{-1, 0}, /*down*/ {1, 0}, /*left*/ {0, -1}, /*right*/ {0, 1}}};
 using direction_t = std::underlying_type_t<Direction>;
+
+constexpr array<Position, 4> directionMap{{/*up*/{-1, 0}, /*down*/ {1, 0}, /*left*/ {0, -1}, /*right*/ {0, 1}}};
+using PerimeterMap = unordered_map<Direction, vector<Position>>; // To help figure out the sides of the region
 
 bool Position::neighbors(const Position& other) const
 {
@@ -84,157 +137,65 @@ char getPlot(const vector<string>& farm, const Position& pos)
     return farm[pos.y][pos.x];
 }
 
-struct Region 
+void stepRegion(queue<Position>& nextRegionPlots, PositionSet& regionPlots, unordered_map<Direction, vector<Position>>& regionPerimeterMap, const vector<string>& farm)
 {
-    char type;
-    unsigned int area;
-    unsigned int perimeter;
-};
+    const auto yFarmSize = farm.size();
+    const auto xFarmSize = farm[0].size();
 
-//auto stepRegion(queue<Position>& regionPositions, PositionSet& plotVisited, const vector<string>& farm)
-//{
-//    const auto ySize = farm.size();
-//    const auto xSize = farm[0].size();
-//
-//    const auto& current = regionPositions.front();
-//    regionPositions.pop();
-//
-//    const auto currentPlot = getPlot(farm, current);
-//    auto perimeter = 0u;
-//    for(const auto& dir : directionMap)
-//    {
-//        const auto next = current + dir;
-//        if(!next.inBounds(ySize, xSize))
-//        {
-//            perimeter += 1;
-//            continue;
-//        }
-//        const auto visited = plotVisited.find(next) != plotVisited.end();
-//        if(visited)
-//        {
-//            continue;
-//        }
-//
-//        const auto sameRegion = currentPlot == getPlot(farm, next);
-//        if(!sameRegion)
-//        {
-//            perimeter += 1;
-//            continue;
-//        }
-//        regionPositions.emplace(next);
-//        plotVisited.emplace(next);
-//    }
-//    return pair<unsigned int, unsigned int>{1, perimeter};
-//}
-
-auto stepRegion(queue<Position>& regionPositions, PositionSet& plotVisited, unordered_map<Direction, vector<Position>>& regionPerimeters, const vector<string>& farm)
-{
-    const auto ySize = farm.size();
-    const auto xSize = farm[0].size();
-
-    const auto& current = regionPositions.front();
-    regionPositions.pop();
+    const auto& current = nextRegionPlots.front();
+    nextRegionPlots.pop();
 
     const auto currentPlot = getPlot(farm, current);
-    auto perimeter = 0u;
     for(const auto& direction : allDirections)
     {
         const auto dir = directionMap[static_cast<size_t>(direction)];
         const auto next = current + dir;
-        if(!next.inBounds(ySize, xSize))
+        if(!next.inBounds(yFarmSize, xFarmSize))
         {
-            perimeter += 1;
-            regionPerimeters[direction].push_back(current);
+            regionPerimeterMap[direction].emplace_back(current);
             continue;
         }
-        const auto visited = plotVisited.find(next) != plotVisited.end();
-        if(visited)
+        const auto visited = regionPlots.find(next) != regionPlots.end();
+        if(visited) // Already visited this plot in this region?
         {
-            continue;
+            continue; // Don't want to revisit...
         }
 
         const auto sameRegion = currentPlot == getPlot(farm, next);
         if(!sameRegion)
         {
-            perimeter += 1;
-            regionPerimeters[direction].emplace_back(current);
+            regionPerimeterMap[direction].emplace_back(current);
             continue;
         }
-        regionPositions.emplace(next);
-        plotVisited.emplace(next);
+
+        // This plot is in the farm, hasn't been visited and in our current region...
+        regionPlots.emplace(next);
+        nextRegionPlots.emplace(next);
     }
-    return pair<unsigned int, unsigned int>{1, perimeter};
 }
 
-class WeightedQuickUnionUF
+auto countPerimeter(const PerimeterMap& regionPerimeterMap)
 {
-private:
-    vector<int> id; // parent link (site indexed)
-    vector<int> sz; // size of component for roots (site indexed)
-    int count; // number of components
+    return accumulate(
+        regionPerimeterMap.begin(),
+        regionPerimeterMap.end(),
+        0u,
+        [](auto sum, const auto& pair) { return sum + pair.second.size(); }
+    );
+}
 
-public:
-    WeightedQuickUnionUF(int N) : id(N), sz(N), count(N)
-    {
-        for (int i = 0; i < N; i++) id[i] = i;
-        for (int i = 0; i < N; i++) sz[i] = 1;
-    }
-
-    int numberOfComponents()
-    { return count; }
-
-    bool connected(int p, int q)
-    { return find(p) == find(q); }
-
-    int find(int p)
-    { // Follow links to find a root.
-        while (p != id[p]) p = id[p];
-        return p;
-    }
-    void unite(int p, int q)
-    {
-        int i = find(p);
-        int j = find(q);
-        if (i == j) return;
-        // Make smaller root point to larger one.
-        if (sz[i] < sz[j]) { id[i] = j; sz[j] += sz[i]; }
-        else { id[j] = i; sz[i] += sz[j]; }
-        count--;
-    }
-};
-
-Region findRegion(PositionSet& farmPlotVisited, const vector<string>& farm, const Position& start)
+auto countSides(const PerimeterMap& regionPerimeterMap)
 {
-    queue<Position> regionPositions;
-    regionPositions.emplace(start);
-    PositionSet regionPlotVisited;
-    regionPlotVisited.emplace(start);
-
-    auto area = 0u;
-    auto perimeter = 0u;
-    unordered_map<Direction, vector<Position>> regionPerimeters
-    {
-        {Direction::Up, {}},
-        {Direction::Down, {}},
-        {Direction::Left, {}},
-        {Direction::Right, {}}
-    };
-    while(!regionPositions.empty())
-    {
-        auto [stepArea, stepPerimeter] = stepRegion(regionPositions, regionPlotVisited, regionPerimeters, farm);
-        area += stepArea;
-        perimeter += stepPerimeter;
-    }
-    farmPlotVisited.insert(regionPlotVisited.begin(), regionPlotVisited.end());
     auto sides = 0u;
-    for(const auto& [dir, perimeters] : regionPerimeters)
+    for(const auto& [_, perimeter] : regionPerimeterMap)
     {
-        auto uf = WeightedQuickUnionUF(perimeters.size());
-        for(auto i = 0; i < perimeters.size(); ++i)
+        auto uf = WeightedQuickUnionUF(perimeter.size());
+        for(auto i = 0; i < perimeter.size(); ++i)
         {
-            for(auto j = i+1; j < perimeters.size(); ++j)
+            for(auto j = i+1; j < perimeter.size(); ++j)
             {
-                if(perimeters[i].neighbors(perimeters[j]))
+                // Do i and j neighbor each other?
+                if(perimeter[i].neighbors(perimeter[j]))
                 {
                     uf.unite(i, j);
                 }
@@ -242,10 +203,37 @@ Region findRegion(PositionSet& farmPlotVisited, const vector<string>& farm, cons
         }
         sides += uf.numberOfComponents();
     }
-    return {.type = getPlot(farm, start), .area = area, .perimeter = sides};
+    return sides;
 }
 
-unsigned long calculateTotalPrice(const vector<string>& farm)
+Region findRegion(PositionSet& farmPlotVisited, const vector<string>& farm, const Position& start)
+{
+    queue<Position> nextRegionPlots; // To step through and process
+    nextRegionPlots.emplace(start);
+    PositionSet regionPlots; // Helps track what we've already pushed in the queue
+    regionPlots.emplace(start);
+
+    // Directions represent the direction we'd take from an edge plot position to exit the region.
+    // Directions keys helps group edge plots positions that potentially establish a side to the region.
+    PerimeterMap regionPerimeterMap
+    {
+        {Direction::Up, {}},
+        {Direction::Down, {}},
+        {Direction::Left, {}},
+        {Direction::Right, {}}
+    };
+    while(!nextRegionPlots.empty())
+    {
+        stepRegion(nextRegionPlots, regionPlots, regionPerimeterMap, farm);
+    }
+    farmPlotVisited.insert(regionPlots.begin(), regionPlots.end());
+    const auto area = regionPlots.size();
+    const auto perimeter = countPerimeter(regionPerimeterMap);
+    const auto sides = countSides(regionPerimeterMap);
+    return {.type = getPlot(farm, start), .area = area, .perimeter = perimeter, .sides = sides};
+}
+
+vector<Region> findRegions(const vector<string>& farm)
 {
     const auto yFarmSize = farm.size();
     const auto xFarmSize = farm[0].size();
@@ -257,13 +245,23 @@ unsigned long calculateTotalPrice(const vector<string>& farm)
         {
             Position p{y,x};
             const auto visited = farmPlotVisited.find(p) != farmPlotVisited.end();
-            if(!visited)
+            if(!visited) // Already visited this plot (/region)
             {
                 regions.emplace_back(findRegion(farmPlotVisited, farm, p));
             }
         }
     }
+    return regions;
+}
+
+auto calculateTotalPricePart1(const vector<Region>& regions)
+{
     return accumulate(regions.begin(), regions.end(), 0ul, [](auto sum, const Region& r){ return sum + (r.area * r.perimeter); });
+}
+
+auto calculateTotalPricePart2(const vector<Region>& regions)
+{
+    return accumulate(regions.begin(), regions.end(), 0ul, [](auto sum, const Region& r){ return sum + (r.area * r.sides); });
 }
 
 int main(int argc, char** argv)
@@ -315,6 +313,7 @@ AAAAAA)");
         farm.emplace_back(line);
     }
 
-    const auto totalPrice = calculateTotalPrice(farm);
-    cout << totalPrice << endl;
+    const auto regions = findRegions(farm);
+    cout << calculateTotalPricePart1(regions) << endl;
+    cout << calculateTotalPricePart2(regions) << endl;
 }
