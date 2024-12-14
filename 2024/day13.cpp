@@ -1,10 +1,113 @@
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <regex>
 #include <sstream>
 
 using namespace std;
+
+struct Axis
+{
+    double x;
+    double y;
+
+    Axis operator+(const double scalar) const
+    {
+        return {.x = x + scalar, .y = y + scalar};
+    }
+};
+
+// TODO:
+struct Machines
+{
+    vector<Axis> buttonA;
+    vector<Axis> buttonB;
+    vector<Axis> prize;
+};
+
+bool parse(Machines& machines, const vector<string>& lines)
+{
+    for(const auto& l : lines)
+    {
+        if(l.empty())
+        {
+            continue;
+        }
+        if(l.substr(0, 6) == "Button")
+        {
+            regex buttonRegex(R"(Button\s([A-B]):\sX\+(\d+),\sY\+(\d+))");
+            smatch match;
+            if(regex_match(l, match, buttonRegex))
+            {
+                if(match[1] == 'A')
+                {
+                    machines.buttonA.emplace_back(stoul(match[2]), stoul(match[3]));
+                }
+                else if(match[1] == 'B')
+                {
+                    machines.buttonB.emplace_back(stoul(match[2]), stoul(match[3]));
+                }
+                else
+                {
+                    cerr << "Failed to match on button 'A' or button 'B'" << endl;
+                    return false;
+                }
+            }
+            else
+            {
+                cerr << "Failed to match on button regex" << endl;
+                return false;
+            }
+        }
+        else if(l.substr(0, 5) == "Prize")
+        {
+            regex prizeRegex(R"(Prize:\sX=(\d+),\sY=(\d+))");
+            smatch match;
+            if(regex_match(l, match, prizeRegex))
+            {
+                machines.prize.emplace_back(stoul(match[1]), stoul(match[2]));
+            }
+            else
+            {
+                cerr << "Failed to match on prize regex" << endl;
+                return false;
+            }
+        }
+        else
+        {
+            cerr << "Failed to detect 'Button' or 'Prize' substring" << endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+auto calculateTotalTokens(const Machines& machines, unsigned long conversionError = 0)
+{
+    auto totalTokens = 0ul;
+    for(auto n = 0u; n < machines.buttonA.size(); ++n)
+    {
+        const auto a = machines.buttonA[n];
+        const auto b = machines.buttonB[n];
+        const auto p = machines.prize[n] + conversionError;
+        const double det = a.x*b.y - b.x*a.y;
+        if(det == 0) // No solution
+        {
+            continue;
+        }
+        array<double, 4> inverseMat{b.y, -b.x, -a.y, a.x};
+
+        // Using unsigned long conversion to floor the double...
+        auto i = static_cast<unsigned long>((inverseMat[0]*p.x + inverseMat[1]*p.y) / det);
+        auto j = static_cast<unsigned long>((inverseMat[2]*p.x + inverseMat[3]*p.y) / det);
+
+        // If we can recalculate the prize (after the floor), it's a valid i,j combination...
+        if(i >= 0 && j >= 0 && (a.x*i + b.x*j == p.x) && (a.y*i + b.y*j == p.y))
+        {
+            totalTokens += 3*i + j;
+        }
+    }
+    return totalTokens;
+}
 
 int main(int argc, char** argv)
 {
@@ -38,92 +141,15 @@ Prize: X=18641, Y=10279)");
         lines.emplace_back(line);
     }
 
-    struct Axis 
+    Machines machines;
+    if(!parse(machines, lines))
     {
-        unsigned int x;
-        unsigned int y;
-    };
-    vector<Axis> buttonA;
-    vector<Axis> buttonB;
-    vector<Axis> prize;
-    for(const auto& l : lines)
-    {
-        if(l.empty())
-        {
-            continue;
-        }
-        if(l.substr(0, 6) == "Button")
-        {
-            regex buttonTokenRegex(R"(Button\s([A-B]):\sX\+(\d+),\sY\+(\d+))");
-            smatch match;
-            if(regex_match(l, match, buttonTokenRegex))
-            {
-                if(match[1] == 'A')
-                {
-                    buttonA.emplace_back(stoul(match[2]), stoul(match[3]));
-                }
-                else if(match[1] == 'B')
-                {
-                    buttonB.emplace_back(stoul(match[2]), stoul(match[3]));
-                }
-                else
-                {
-                    cerr << "Failed to parse button" << endl;
-                    return 1;
-                }
-            }
-        }
-        else if(l.substr(0, 5) == "Prize")
-        {
-            regex prizeTokenRegex(R"(Prize:\sX=(\d+),\sY=(\d+))");
-            smatch match;
-            if(regex_match(l, match, prizeTokenRegex))
-            {
-                prize.emplace_back(stoul(match[1]), stoul(match[2]));
-            }
-        }
-        else
-        {
-            cerr << "Failed to detect 'Button' or 'Prize' substring during parsing" << endl;
-            return 1;
-        }
+        cerr << "Failed to parse" << endl;
+        return 1;
     }
 
-    constexpr auto ButtonPressLimit = 100u;
-    auto totalTokens = 0u;
-    for(auto n = 0u; n < buttonA.size(); ++n)
-    {
-        const auto a = buttonA[n];
-        const auto b = buttonB[n];
-        const auto p = prize[n];
-        vector<pair<unsigned long, unsigned long>> pressed;
-        for(auto i = 0u; i < ButtonPressLimit; ++i)
-        {
-            for(auto j = 0u; j < ButtonPressLimit; ++j)
-            {
-                if((a.x*i + b.x*j == p.x) && (a.y*i + b.y*j == p.y))
-                {
-                    pressed.emplace_back(i, j);
-                }
-            }
-        }
-
-        if(!pressed.size())
-        {
-            continue;
-        }
-
-        auto tokens = 3*pressed[0].first + pressed[0].second;
-        for(const auto& [i, j] : pressed)
-        {
-            cout << i << ", " << j << endl;
-            const auto newTokens = 3 * i + j;
-            if(newTokens < tokens)
-            {
-                tokens = newTokens;
-            }
-        }
-        totalTokens += tokens;
-    }
-    cout << totalTokens << endl;
+    const auto totalTokensP1 = calculateTotalTokens(machines);
+    const auto totalTokensP2 = calculateTotalTokens(machines, 10000000000000);
+    cout << totalTokensP1 << endl;
+    cout << totalTokensP2 << endl;
 }
