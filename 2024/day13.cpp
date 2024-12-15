@@ -16,7 +16,6 @@ struct Axis
     }
 };
 
-// TODO:
 struct Machines
 {
     vector<Axis> buttonA;

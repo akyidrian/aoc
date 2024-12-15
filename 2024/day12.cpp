@@ -100,7 +100,6 @@ struct Position
 
     struct Hash {
         std::size_t operator()(const Position& p) const {
-            // Combine the two integers into a single hash
             return hash<int>()(p.y) ^ (hash<int>()(p.x) << 1);
         }
     };
