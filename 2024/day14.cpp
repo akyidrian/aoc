@@ -5,6 +5,7 @@
 #include <numeric>
 #include <regex>
 #include <sstream>
+#include <unordered_set>
 
 using namespace std;
 
@@ -12,7 +13,18 @@ struct Vector2D
 {
     long x;
     long y;
+
+    bool operator==(const Vector2D& other) const {
+        return y == other.y && x == other.x;
+    }
+
+    struct Hash {
+        std::size_t operator()(const Vector2D& v) const {
+            return hash<int>()(v.y) ^ (hash<int>()(v.x) << 1);
+        }
+    };
 };
+using PositionSet = unordered_set<Vector2D, Vector2D::Hash>;
 
 struct Robot
 {
@@ -46,6 +58,89 @@ enum class Input
     Example,
     File
 };
+
+void printRobots(const vector<Robot>& robots, const Vector2D& dimensions)
+{
+    vector<string> outsideBathroom(dimensions.y, string(dimensions.x, '.'));
+    for(const auto& r : robots)
+    {
+        const auto currentChar = outsideBathroom[r.position.y][r.position.x];
+        if(currentChar == '.')
+        {
+            outsideBathroom[r.position.y][r.position.x] = '1';
+        }
+        else if(currentChar >= '1' && currentChar < '9')
+        {
+            outsideBathroom[r.position.y][r.position.x] += 1;
+        }
+        else if(currentChar == '9')
+        {
+            outsideBathroom[r.position.y][r.position.x] = 'X';
+        }
+    }
+    for(const auto& l : outsideBathroom)
+    {
+        cout << l << '\n';
+    }
+    cout << endl;
+}
+
+auto calculateTotalSafetyFactor(vector<Robot> robots, const Vector2D& dimensions, unsigned long deltaTime)
+{
+    array<unsigned long, 4> quadrantSafetyFactor{};
+    for(auto& r : robots)
+    {
+        r.update(deltaTime, dimensions);
+
+        // Counts the quadrant the robots land in...
+        const auto left = r.position.x < (dimensions.x / 2);
+        const auto right = r.position.x > (dimensions.x / 2);
+        const auto top = r.position.y < (dimensions.y / 2);
+        const auto bottom = r.position.y > (dimensions.y / 2);
+        if(top && left)
+        {
+            quadrantSafetyFactor[0]++;
+        }
+        else if(top && right)
+        {
+            quadrantSafetyFactor[1]++;
+        }
+        else if(bottom && left)
+        {
+            quadrantSafetyFactor[2]++;
+        }
+        else if(bottom && right)
+        {
+            quadrantSafetyFactor[3]++;
+        }
+    }
+
+    return accumulate(quadrantSafetyFactor.begin(), quadrantSafetyFactor.end(), 1ul, [](auto product, auto factor){ return product * factor; });
+}
+
+auto findEasterEgg(vector<Robot> robots, const Vector2D dimensions, unsigned long maxDeltaTime = 1000000)
+{
+    constexpr auto DeltaTimeIncrement = 1ul; // Seconds
+    auto deltaTime = DeltaTimeIncrement;
+    while(deltaTime <= maxDeltaTime)
+    {
+        PositionSet positionSet;
+        for(auto& r : robots)
+        {
+            r.update(1/*Second*/, dimensions);
+            positionSet.emplace(r.position);
+        }
+
+        // Every robot has it's own unique position?
+        if(positionSet.size() == robots.size())
+        {
+            printRobots(robots, dimensions);
+            return deltaTime;
+        }
+        deltaTime += DeltaTimeIncrement;
+    }
+    return deltaTime;
+}
 
 int main(int argc, char** argv)
 {
@@ -95,49 +190,12 @@ p=9,5 v=-3,-3)");
         {
             const Vector2D position{stol(match[1]), stol(match[2])};
             const Vector2D velocity{stol(match[3]), stol(match[4])};
-            const Robot robot(position, velocity);
-            robots.emplace_back(robot);
+            robots.emplace_back(position, velocity);
         }
     }
 
-    for(auto& r : robots)
-    {
-        r.update(100/*seconds*/, dimensions);
-    }
-
-    for(const auto& r : robots)
-    {
-        cout << r << endl;
-    }
-
-    array<unsigned long, 4> quadrantSafetyFactor{};
-    for(const auto& r : robots)
-    {
-        const auto left = r.position.x < (dimensions.x / 2);
-        const auto right = r.position.x > (dimensions.x / 2);
-        const auto top = r.position.y < (dimensions.y / 2);
-        const auto bottom = r.position.y > (dimensions.y / 2);
-        if(left && top)
-        {
-            quadrantSafetyFactor[0]++;
-        }
-        else if(right && top)
-        {
-            quadrantSafetyFactor[1]++;
-        }
-        else if(left && bottom)
-        {
-            quadrantSafetyFactor[2]++;
-        }
-        else if(right && bottom)
-        {
-            quadrantSafetyFactor[3]++;
-        }
-    }
-    for(auto& a : quadrantSafetyFactor)
-    {
-        cout << a << endl;
-    }
-    auto totalSafetyFactor = accumulate(quadrantSafetyFactor.begin(), quadrantSafetyFactor.end(), 1ul, [](auto product, auto factor){ return product * factor; });
+    const auto totalSafetyFactor = calculateTotalSafetyFactor(robots, dimensions, 100/*Seconds*/);
+    const auto elapsedTime = findEasterEgg(robots, dimensions);
     cout << totalSafetyFactor << endl;
+    cout << elapsedTime << endl;
 }
