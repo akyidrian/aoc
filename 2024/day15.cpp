@@ -2,7 +2,6 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#include <numeric>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
@@ -25,7 +24,7 @@ struct Vector2D
         x += other.x;
     }
 
-    Vector2D operator-(const Vector2D& other)
+    Vector2D operator-(const Vector2D& other) const
     {
         return Vector2D{.y = y - other.y, .x = x - other.x};
     }
@@ -34,6 +33,11 @@ struct Vector2D
     {
         y -= other.y;
         x -= other.x;
+    }
+
+    bool operator==(const Vector2D& other) const
+    {
+        return y == other.y && x == other.x;
     }
 
     friend std::ostream& operator<<(std::ostream& os, const Vector2D& v)
@@ -85,95 +89,116 @@ Vector2D findRobot(const vector<string>& warehouseMap)
     return {};
 }
 
-bool canMove(vector<string>& warehouseMap, const Vector2D& pos, const Vector2D& dir)
+bool doMoveP1(vector<string>& warehouseMap, const Vector2D& pos, const Vector2D& dir)
 {
-    const Vector2D next = pos + dir;
-    auto ret = true;
-    if(warehouseMap[next.y][next.x] == '#')
-    {
-        return false;
+    const auto next = pos + dir;
+    switch (warehouseMap[next.y][next.x]) {
+        case 'O': 
+        {
+            bool result = doMoveP1(warehouseMap, next, dir);
+            if (!result)
+            {
+                return false;
+            }
+        }
+        case '.':
+            warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
+            warehouseMap[pos.y][pos.x] = '.';
+            return true;
+        case '#':
+            return false;
     }
-    else if(warehouseMap[next.y][next.x] == '.')
-    {
-        return true;
-    }
-    if(warehouseMap[next.y][next.x] == '[')
-    {
-        Vector2D besideNext = next + directionMap[static_cast<size_t>(Direction::Right)];
-        ret = ret && canMove(warehouseMap, next, dir);
-        ret = ret && canMove(warehouseMap, besideNext, dir);
-    }
-    else
-    {
-        Vector2D besideNext = next + directionMap[static_cast<size_t>(Direction::Left)];
-        ret = ret && canMove(warehouseMap, next, dir);
-        ret = ret && canMove(warehouseMap, besideNext, dir);
-    }
-    return ret;
+    return true;
 }
 
-void doMove(vector<string>& warehouseMap, const Vector2D& pos, const Vector2D& dir)
+bool canMoveP2(vector<string>& warehouseMap, const Vector2D& pos, const Vector2D& dir)
 {
-    const Vector2D next = pos + dir;
-    if(warehouseMap[next.y][next.x] == '.')
+    const auto next = pos + dir;
+    switch(warehouseMap[next.y][next.x])
     {
-        warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
-        warehouseMap[pos.y][pos.x] = '.';
-        return;
+        case '[':
+        {
+            auto ret = canMoveP2(warehouseMap, next, dir);
+            if(dir == directionMap[static_cast<direction_t>(Direction::Left)])
+            {
+                return ret;
+            }
+            const auto besideNext = next + directionMap[static_cast<direction_t>(Direction::Right)];
+            return ret && canMoveP2(warehouseMap, besideNext, dir);
+        }
+        case ']':
+        {
+            auto ret = canMoveP2(warehouseMap, next, dir);
+            if(dir == directionMap[static_cast<direction_t>(Direction::Right)])
+            {
+                return ret;
+            }
+            const auto besideNext = next + directionMap[static_cast<direction_t>(Direction::Left)];
+            return ret && canMoveP2(warehouseMap, besideNext, dir);
+        }
+        case '.': return true;
+        case '#': return false;
     }
-    Vector2D beside;
-    Vector2D besideNext;
-    if(warehouseMap[next.y][next.x] == '[')
+    return false;
+}
+
+void doMoveP2(vector<string>& warehouseMap, const Vector2D& pos, const Vector2D& dir)
+{
+    const auto next = pos + dir;
+    switch(warehouseMap[next.y][next.x])
     {
-        Vector2D beside = pos + directionMap[static_cast<size_t>(Direction::Right)];
-        Vector2D besideNext = next + directionMap[static_cast<size_t>(Direction::Right)];
+        case '[':
+        {
+            doMoveP2(warehouseMap, next, dir);
+            const auto verticalMove = dir == directionMap[static_cast<direction_t>(Direction::Up)] || dir == directionMap[static_cast<direction_t>(Direction::Down)];
+            if (verticalMove)
+            {
+                const auto besideNext = next + directionMap[static_cast<direction_t>(Direction::Right)];
+                doMoveP2(warehouseMap, besideNext, dir);
+            }
+            warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
+            warehouseMap[pos.y][pos.x] = '.';
+            break;
+        }
+        case ']':
+        {
+            doMoveP2(warehouseMap, next, dir);
+            const auto verticalMove = dir == directionMap[static_cast<direction_t>(Direction::Up)] || dir == directionMap[static_cast<direction_t>(Direction::Down)];
+            if (verticalMove)
+            {
+                const auto besideNext = next + directionMap[static_cast<direction_t>(Direction::Left)];
+                doMoveP2(warehouseMap, besideNext, dir);
+            }
+            warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
+            warehouseMap[pos.y][pos.x] = '.';
+            break;
+        }
+        case '.':
+        {
+            warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
+            warehouseMap[pos.y][pos.x] = '.';
+            break;
+        }
     }
-    else if(warehouseMap[next.y][next.x] == ']')
-    {
-        Vector2D beside = pos + directionMap[static_cast<size_t>(Direction::Left)];
-        Vector2D besideNext = next + directionMap[static_cast<size_t>(Direction::Left)];
-    }
-    doMove(warehouseMap, next, dir);
-    doMove(warehouseMap, besideNext, dir);
-    warehouseMap[next.y][next.x] = warehouseMap[pos.y][pos.x];
-    warehouseMap[pos.y][pos.x] = '.';
 }
 
 auto part1(vector<string> warehouseMap, const string& movementAttempts)
 {
-    printWarehouseMap(warehouseMap);
-    const auto yWarehouseMapSize = warehouseMap.size();
-    const auto xWarehouseMapSize = warehouseMap[0].size();
     auto robot = findRobot(warehouseMap);
 
+    printWarehouseMap(warehouseMap);
     for(const auto& dirChar : movementAttempts)
     {
         const auto dir =  directionMap[charToDirMap[dirChar]];
-        auto next = robot + dir;
-        if(warehouseMap[next.y][next.x] == '.')
+        if(doMoveP1(warehouseMap, robot, dir))
         {
-            warehouseMap[robot.y][robot.x] = '.';
             robot += dir;
-            warehouseMap[robot.y][robot.x] = '@';
-            printWarehouseMap(warehouseMap);
-            continue;
         }
-        while(warehouseMap[next.y][next.x] == 'O')
-        {
-            next += dir;
-        }
-        if(warehouseMap[next.y][next.x] == '#')
-        {
-            printWarehouseMap(warehouseMap);
-            continue;
-        }
-        warehouseMap[next.y][next.x] = 'O';
-        warehouseMap[robot.y][robot.x] = '.';
-        robot += dir;
-        warehouseMap[robot.y][robot.x] = '@';
         printWarehouseMap(warehouseMap);
     }
 
+    const auto yWarehouseMapSize = warehouseMap.size();
+    const auto xWarehouseMapSize = warehouseMap[0].size();
     auto sum = 0ul;
     for(auto y = 0u; y < yWarehouseMapSize; ++y)
     {
@@ -219,8 +244,6 @@ void scaleUp(vector<string>& warehouseMap)
 auto part2(vector<string> warehouseMap, const string& movementAttempts)
 {
     scaleUp(warehouseMap);
-    const auto yWarehouseMapSize = warehouseMap.size();
-    const auto xWarehouseMapSize = warehouseMap[0].size();
     auto robot = findRobot(warehouseMap);
 
     printWarehouseMap(warehouseMap);
@@ -228,70 +251,17 @@ auto part2(vector<string> warehouseMap, const string& movementAttempts)
     {
         const auto dir =  directionMap[charToDirMap[dirChar]];
         auto next = robot + dir;
-        if(warehouseMap[next.y][next.x] == '.')
+        if(canMoveP2(warehouseMap, robot, dir))
         {
-            warehouseMap[robot.y][robot.x] = '.';
+            doMoveP2(warehouseMap, robot, dir);
             robot += dir;
-            warehouseMap[robot.y][robot.x] = '@';
-            printWarehouseMap(warehouseMap);
-            continue;
         }
-        else if(warehouseMap[next.y][next.x] == '#')
-        {
-            printWarehouseMap(warehouseMap);
-            continue;
-        }
-
-        if(dirChar == '<') // Must be hitting ']'
-        {
-            while(warehouseMap[next.y][next.x] == ']')
-            {
-                next += dir + dir; // Jump over '['
-            }
-            if(warehouseMap[next.y][next.x] == '#')
-            {
-                printWarehouseMap(warehouseMap);
-                continue;
-            }
-            string boxes(warehouseMap[next.y].begin()+next.x+1, warehouseMap[next.y].begin()+robot.x);
-            copy(boxes.begin(), boxes.end(), warehouseMap[next.y].begin()+next.x);
-            warehouseMap[robot.y][robot.x] = '.';
-            robot += dir;
-            warehouseMap[robot.y][robot.x] = '@';
-            printWarehouseMap(warehouseMap);
-            continue;
-        }
-        else if(dirChar == '>') // Must be hitting ']'
-        {
-            while(warehouseMap[next.y][next.x] == '[')
-            {
-                next += dir + dir; // Jump over ']'
-            }
-            if(warehouseMap[next.y][next.x] == '#')
-            {
-                printWarehouseMap(warehouseMap);
-                continue;
-            }
-            string boxes(warehouseMap[next.y].begin()+robot.x+1, warehouseMap[next.y].begin()+next.x);
-            copy(boxes.begin(), boxes.end(), warehouseMap[next.y].begin()+robot.x+2);
-            warehouseMap[robot.y][robot.x] = '.';
-            robot += dir;
-            warehouseMap[robot.y][robot.x] = '@';
-            printWarehouseMap(warehouseMap);
-            continue;
-        }
-        else if(dirChar == '^' || dirChar == 'v')
-        {
-            if(canMove(warehouseMap, robot, dir))
-            {
-                doMove(warehouseMap, robot, dir);
-                robot += dir;
-            }
-            printWarehouseMap(warehouseMap);
-            continue;
-        }
+        printWarehouseMap(warehouseMap);
+        continue;
     }
 
+    const auto yWarehouseMapSize = warehouseMap.size();
+    const auto xWarehouseMapSize = warehouseMap[0].size();
     auto sum = 0ul;
     for(auto y = 0u; y < yWarehouseMapSize; ++y)
     {
