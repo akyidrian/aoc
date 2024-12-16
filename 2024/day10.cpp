@@ -19,9 +19,10 @@ struct Position
         return Position{.y = y + other.y, .x = x + other.x};
     }
 
-    Position operator+=(const Position& other) const
+    void operator+=(const Position& other)
     {
-        return Position{.y = y + other.y, .x = x + other.x};
+        y += other.y;
+        x += other.x;
     }
 
     bool operator<(const Position& other) const
