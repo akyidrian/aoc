@@ -27,23 +27,11 @@ struct Computer
     unsigned long c = 0ul;
     vector<uint8_t> program;
     long p = 0l; // 'instruction pointer'
-    stringstream out;
+    vector<uint8_t> out;
 
     Computer() = delete;
     Computer(unsigned long a, unsigned long b, unsigned long c, const vector<uint8_t>& program)
     : a(a), b(b), c(c), program(program) {}
-
-    Computer(const Computer& other)
-        : a(other.a),
-          b(other.b),
-          c(other.c),
-          program(other.program),
-          p(other.p)
-    {
-        out.str(other.out.str());
-        out.clear();
-        out.setstate(other.out.rdstate());
-    }
 
     unsigned long combo(unsigned long operand)
     {
@@ -82,11 +70,7 @@ struct Computer
         else if (opcode == Opcode::Bxc) b ^= c; // Ignore operand (legacy reasons)
         else if (opcode == Opcode::Out)
         {
-                if(out.str().size() > 0)
-                {
-                    out << ',';
-                }
-                out << comboOperand % 8;
+            out.emplace_back(comboOperand % 8);
         }
         else if (opcode == Opcode::Bdv) b = a / pow(2, comboOperand);
         else if (opcode == Opcode::Cdv) c = a / pow(2, comboOperand);
@@ -102,11 +86,21 @@ struct Computer
             execute(static_cast<Opcode>(op), operand);
             it = program.begin() + p;
         }
-        return out.str();
+
+        string outStr;
+        for(const auto& o : out)
+        {
+            if(outStr.size() > 0)
+            {
+                outStr += ",";
+            }
+            outStr += to_string(o);
+        }
+        return outStr;
     }
 
     // FIXME: This works but makes multiple assumptions based on the program input...
-    bool solve(const vector<uint8_t>& program, long p, unsigned long reg)
+    static bool solve(Computer computer, long p, unsigned long reg)
     {
         if(p < 0)
         {
@@ -115,41 +109,19 @@ struct Computer
         }
         for(auto d : views::iota(0, 8))
         {
-            auto a = reg << 3 | d;
-            auto b = 0ul;
-            auto c = 0ul;
-            auto out = 0ul;
-            auto i = 0l;
-            while(i < program.size())
+            const auto& program = computer.program;
+            computer.a = reg << 3 | d;
+            computer.b = 0ul;
+            computer.c = 0ul;
+            computer.p = 0ul;
+            while(computer.p < program.size())
             {
-                auto o = 0ul;
-                if      (program[i+1] <= 3) o = program[i+1];
-                else if (program[i+1] == 4) o = a;
-                else if (program[i+1] == 5) o = b;
-                else if (program[i+1] == 6) o = c;
-
-                if      (program[i] == 0) a >>= o;
-                else if (program[i] == 1) b ^= program[i+1];
-                else if (program[i] == 2) b = o & 7;
-                else if (program[i] == 3)
-                {
-                    // TODO: We don't ever hit this case here...
-                    //if(a != 0)
-                    //{
-                    //    i = program[i+1] - 2;
-                    //}
-                }
-                else if (program[i] == 4) b ^= c;
-                else if (program[i] == 5)
-                {
-                    out = o & 7;
-                    break;
-                }
-                else if (program[i] == 6) b = a >> o;
-                else if (program[i] == 7) c = a >> o;
-                i += 2;
+                const auto opcode = static_cast<Opcode>(program[computer.p]);
+                const auto operand = program[computer.p+1];
+                computer.execute(opcode, operand);
+                if(static_cast<Opcode>(opcode) == Opcode::Out) break;
             }
-            if(out == program[p] && solve(program, p-1, reg << 3 | d))
+            if(computer.out.back() == program[p] && solve(computer, p-1, reg << 3 | d))
             {
                 return true;
             }
@@ -159,7 +131,7 @@ struct Computer
 
     void solve()
     {
-        solve(program, program.size()-1, 0);
+        solve(*this, program.size()-1, 0);
     }
 };
 
@@ -231,5 +203,6 @@ Program: 0,3,5,4,3,0)");
 
     auto computer = parse(input);
     cout << "Part 1: " << computer.run() << endl;
+    cout << "Part 2: ";
     computer.solve(); // Will print part 2
 }
