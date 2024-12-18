@@ -67,67 +67,32 @@ struct State
     }
 };
 
-auto part1(const unordered_set<Vector2D, Vector2D::Hash>& bytePositions, int memorySize)
+void printMap(const unordered_set<Vector2D, Vector2D::Hash>& bytePositions, const vector<Vector2D>& path, int mapSize, bool skip = true)
 {
-    priority_queue<State, vector<State>, greater<State>> pq;
-    unordered_set<Vector2D, Vector2D::Hash> visited;
-    vector<string> map(memorySize, string(memorySize, '.'));
+    if(skip)
+    {
+        return;
+    }
+    vector<string> map(mapSize, string(mapSize, '.'));
     for(const auto& p : bytePositions)
     {
         map[p.y][p.x] = '#';
     }
-    const auto startPosition = Vector2D{0, 0};
-    const auto endPosition = Vector2D{memorySize-1, memorySize-1};
-    pq.emplace(startPosition, 0, vector<Vector2D>{startPosition});
-    while(!pq.empty())
+    for(const auto& p : path)
     {
-        auto curr = pq.top();
-        pq.pop();
-        if(curr.pos == endPosition)
-        {
-            for(const auto& p : curr.path)
-            {
-                map[p.y][p.x] = 'O';
-            }
-            for(const auto& l : map)
-            {
-                cout << l << endl;
-            }
-            return curr.cost;
-        }
-        if(bytePositions.find(curr.pos) != bytePositions.end() || visited.find(curr.pos) != visited.end())
-        {
-            continue;
-        }
-        visited.emplace(curr.pos);
-        for(const auto dir : directions)
-        {
-            const Vector2D direction = {dx[dir], dy[dir]};
-            const auto next = curr.pos + direction;
-            if(next.inBounds(memorySize))
-            {
-                auto path = curr.path;
-                path.emplace_back(next);
-                pq.emplace(next, curr.cost + 1, path);
-            }
-        }
+        map[p.y][p.x] = 'O';
     }
     for(const auto& l : map)
     {
-        cout << l << endl;
+        cout << l << "\n";
     }
-    return 0u;
+    cout << endl;
 }
 
-auto findEndPosition(const unordered_set<Vector2D, Vector2D::Hash>& bytePositions, int memorySize)
+pair<vector<Vector2D>, unsigned int> findPath(const unordered_set<Vector2D, Vector2D::Hash>& bytePositions, int memorySize)
 {
     priority_queue<State, vector<State>, greater<State>> pq;
     unordered_set<Vector2D, Vector2D::Hash> visited;
-    vector<string> map(memorySize, string(memorySize, '.'));
-    for(const auto& p : bytePositions)
-    {
-        map[p.y][p.x] = '#';
-    }
     const auto startPosition = Vector2D{0, 0};
     const auto endPosition = Vector2D{memorySize-1, memorySize-1};
     pq.emplace(startPosition, 0, vector<Vector2D>{startPosition});
@@ -137,15 +102,8 @@ auto findEndPosition(const unordered_set<Vector2D, Vector2D::Hash>& bytePosition
         pq.pop();
         if(curr.pos == endPosition)
         {
-            for(const auto& p : curr.path)
-            {
-                map[p.y][p.x] = 'O';
-            }
-//            for(const auto& l : map)
-//            {
-//                cout << l << endl;
-//            }
-            return curr.pos; // TODO:
+            printMap(bytePositions, curr.path, memorySize);
+            return {curr.path, curr.cost};
         }
         if(bytePositions.find(curr.pos) != bytePositions.end() || visited.find(curr.pos) != visited.end())
         {
@@ -164,27 +122,31 @@ auto findEndPosition(const unordered_set<Vector2D, Vector2D::Hash>& bytePosition
             }
         }
     }
-//    for(const auto& l : map)
-//    {
-//        cout << l << endl;
-//    }
-    return Vector2D{0, 0};
+    printMap(bytePositions, {}, memorySize);
+    return {{}, 0u};
 }
 
-auto part2(const vector<Vector2D>& bytePositions, int memorySize)
+Vector2D findBlocker(const vector<Vector2D>& bytePositions, int memorySize)
 {
-    auto endPosition = Vector2D(memorySize-1, memorySize-1);
+    int left = 0;
+    int right = bytePositions.size() - 1;
+    const auto endPosition = Vector2D(memorySize - 1, memorySize - 1);
     Vector2D coords = endPosition;
-    auto i = memorySize-1;
-    auto blocker = bytePositions.begin();
-    while(coords == endPosition)
+    while (left < right)
     {
-        unordered_set<Vector2D, Vector2D::Hash> bytePositionsSet(bytePositions.begin(), bytePositions.begin() + i);
-        coords = findEndPosition(bytePositionsSet, memorySize);
-        blocker = bytePositions.begin() + i - 1;
-        i++;
+        const int mid = left + (right - left) / 2;
+        const unordered_set<Vector2D, Vector2D::Hash> bytePositionsSet(bytePositions.begin(), bytePositions.begin() + mid + 1);
+        auto [path, cost] = findPath(bytePositionsSet, memorySize);
+        if (!path.empty() && path.back() == endPosition)
+        {
+            left = mid + 1;
+        }
+        else
+        {
+            right = mid;
+        }
     }
-    return *blocker;
+    return bytePositions[left];
 }
 
 int main(int argc, char** argv)
@@ -225,9 +187,11 @@ R"(5,4
         cerr << "Failed to open file" << "\n";
         return 1;
     }
+
     const auto& bytes = fileBytes;
     const auto& memorySize = fileMemorySize;
     auto& input = file;
+
     string line;
     regex bytePositionRegex(R"((\d+),(\d+))");
     vector<Vector2D> bytePositions;
@@ -241,8 +205,8 @@ R"(5,4
     }
 
     unordered_set<Vector2D, Vector2D::Hash> bytePositionsSet(bytePositions.begin(), bytePositions.begin()+bytes);
-    const auto steps = part1(bytePositionsSet, memorySize);
-    const auto coords = part2(bytePositions, memorySize);
+    const auto [path, steps] = findPath(bytePositionsSet, memorySize);
+    const auto coords = findBlocker(bytePositions, memorySize);
     cout << steps << endl;
-    cout << coords.x << ", " <<  coords.y << endl;
+    cout << coords.x << "," <<  coords.y << endl;
 }
