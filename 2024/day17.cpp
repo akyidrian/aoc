@@ -75,7 +75,11 @@ void instruction(unsigned long op, unsigned long operand)
         }
         case(5): // out
         {
-            out << combo(operand) % 8 << ",";
+            if(out.str().size() > 0)
+            {
+                out << ',';
+            }
+            out << combo(operand) % 8;
             instructionPointer += 2ul;
             return;
         }
@@ -116,25 +120,28 @@ Program: 0,3,5,4,3,0)");
         cerr << "Failed to open file" << "\n";
         return 1;
     }
-    auto& input = exampleP2;
+    auto& input = file;
     string line;
     regex registerRegex(R"(Register\s([A-C]):\s(\d+))");
     regex programRegex(R"(Program:\s((\d+,?)+))");
     smatch match;
     getline(input, line);
+    auto registerARegex = 0ul;
+    auto registerBRegex = 0ul;
+    auto registerCRegex = 0ul;
     if(regex_match(line, match, registerRegex))
     {
-        registerA = stoul(match[2]);
+        registerARegex = stoul(match[2]);
     }
     getline(input, line);
     if(regex_match(line, match, registerRegex))
     {
-        registerB = stoul(match[2]);
+        registerBRegex = stoul(match[2]);
     }
     getline(input, line);
     if(regex_match(line, match, registerRegex))
     {
-        registerC = stoul(match[2]);
+        registerCRegex = stoul(match[2]);
     }
     getline(input, line); // \n
     getline(input, line);
@@ -148,15 +155,13 @@ Program: 0,3,5,4,3,0)");
             program.emplace_back(stoul(string(sv)));
         }
     }
-    cout << registerA << endl;
-    cout << registerB << endl;
-    cout << registerC << endl;
-    for(const auto& p : program)
-    {
-        cout << p << ",";
-    }
-    cout << endl;
-    cout << programStr << endl;
+    registerA = registerARegex;
+    registerB = registerBRegex;
+    registerC = registerCRegex;
+    cout << "Register A: " << registerA << endl;
+    cout << "Register B: " << registerB << endl;
+    cout << "Register C: " << registerC << endl;
+    cout << "Program   : " << programStr << endl;
 
     for(auto it = program.begin(); it != program.end();)
     {
@@ -165,6 +170,9 @@ Program: 0,3,5,4,3,0)");
         instruction(op, operand);
         it = program.begin() + instructionPointer;
     }
-    cout << out.str() << endl;
+    cout << "Register A: " << registerA << endl;
+    cout << "Register B: " << registerB << endl;
+    cout << "Register C: " << registerC << endl;
+    cout << "Out       : "<< out.str() << endl;
 
 }
