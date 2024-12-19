@@ -7,42 +7,49 @@
 
 using namespace std;
 
-bool wordBreak(const unordered_set<string>& patterns, const string& s, int start, unordered_map<int, bool>& memo)
+// Using backtracking with memoization 
+unsigned long patternBreak(const unordered_set<string>& patterns, const string& s, size_t start, unordered_map<unsigned long, unsigned long>& memo)
 {
     if (start == s.size())
     {
-        return true; // If we've reached the end of the string
-    }
-    if (memo.find(start) != memo.end())
-    {
-        return memo[start]; // Return cached result if we've already solved this subproblem
+        return 1; // Reached the end of the string, one valid segmentation
     }
 
-    // Try all possible splits
-    for (int i = start + 1; i <= s.size(); ++i)
+    if (memo.find(start) != memo.end())
+    {
+        return memo[start];
+    }
+
+    auto totalWays = 0ul;
+
+    // Try all possible splits starting from `start`
+    for (auto i = start + 1; i <= s.size(); ++i)
     {
         const string prefix = s.substr(start, i - start);
-        if (patterns.find(prefix) != patterns.end() && wordBreak(patterns, s, i, memo))
+        if (patterns.find(prefix) != patterns.end())
         {
-            memo[start] = true; // Memoize the result for this start position
-            return true;
+            // Recursively count all segmentations for the remainder of the string
+            totalWays += patternBreak(patterns, s, i, memo);
         }
     }
 
-    memo[start] = false; // If no valid split found
-    return false;
+    memo[start] = totalWays;
+    return totalWays;
 }
 
-auto findDesignsPossible(const vector<string>& patterns, const vector<string>& designs)
+pair<unsigned long, unsigned long> findDesigns(const vector<string>& patterns, const vector<string>& designs)
 {
     unordered_set<string> patternsSet(patterns.begin(), patterns.end());
-    auto count = 0u;
+    auto possibleCount = 0ul;
+    auto differentWaysCount = 0ul;
     for(const auto& d : designs)
     {
-        unordered_map<int, bool> memo; // Memoization map
-        count += wordBreak(patternsSet, d, 0, memo);
+        unordered_map<unsigned long, unsigned long> memo; // Memoization map
+        const auto currDiffWays = patternBreak(patternsSet, d, 0, memo);
+        possibleCount += currDiffWays > 0;
+        differentWaysCount += currDiffWays; 
     }
-    return count;
+    return {possibleCount, differentWaysCount};
 }
 
 int main(int argc, char** argv)
@@ -64,32 +71,25 @@ bbrgwb)");
         cerr << "Failed to open file" << "\n";
         return 1;
     }
+
     auto& input = file;
     string line;
 
-    // Parsing input
     getline(input, line);
     regex towelPatternsDelimiter(",\\s");
     sregex_token_iterator it(line.begin(), line.end(), towelPatternsDelimiter, -1);
     sregex_token_iterator end;
     vector<string> towelPatterns(it, end);
+
     getline(input, line); // Skip \n
+
     vector<string> towelDesigns;
     while(getline(input, line))
     {
         towelDesigns.emplace_back(line);
     }
-//    for (const auto& p : towelPatterns)
-//    {
-//        cout << p << ", ";
-//    }
-//    cout << endl;
-//
-//    for (const auto& d : towelDesigns)
-//    {
-//        cout << d << ", ";
-//    }
-//    cout << endl;
-    const auto designCount = findDesignsPossible(towelPatterns, towelDesigns);
-    cout << designCount << endl;
+
+    const auto [possibleCount, differentWaysCount] = findDesigns(towelPatterns, towelDesigns);
+    cout << possibleCount << endl;
+    cout << differentWaysCount << endl;
 }
